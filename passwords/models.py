@@ -3,10 +3,8 @@ from typing import Set
 
 
 class Category(str, Enum):
-    """Categories for password entries.
+    """Categories for password organization."""
 
-    Inherits from str to make it JSON serializable and easier to use in string comparisons.
-    """
     FINANCE = "Finance"
     SHOPPING = "Shopping"
     SOCIAL = "Social"
@@ -19,8 +17,8 @@ class Category(str, Enum):
 
     @classmethod
     def values(cls) -> Set[str]:
-        """Get all category values as a set."""
-        return {category.value for category in cls}
+        """Get all valid category values."""
+        return {item.value for item in cls}
 
     @classmethod
     def descriptions(cls) -> dict[str, str]:
@@ -34,15 +32,18 @@ class Category(str, Enum):
             cls.EDUCATION.value: "learning platforms, academic",
             cls.TRAVEL.value: "airlines, hotels, booking",
             cls.HEALTH.value: "medical, fitness, wellness",
-            cls.NO_FOLDER.value: "when no match or insufficient information"
+            cls.NO_FOLDER.value: "when no match or insufficient information",
         }
 
     @classmethod
     def format_for_prompt(cls) -> str:
         """Format categories for use in model prompts."""
         descriptions = cls.descriptions()
-        return "\n".join(
-            f"- {category} ({descriptions[category]})"
-            for category in cls.values()
-            if category != cls.NO_FOLDER.value
-        ) + f"\n- {cls.NO_FOLDER.value} ({descriptions[cls.NO_FOLDER.value]})"
+        return (
+            "\n".join(
+                f"- {category} ({descriptions[category]})"
+                for category in cls.values()
+                if category != cls.NO_FOLDER.value
+            )
+            + f"\n- {cls.NO_FOLDER.value} ({descriptions[cls.NO_FOLDER.value]})"
+        )

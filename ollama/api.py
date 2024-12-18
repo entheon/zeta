@@ -1,6 +1,8 @@
 from typing import Dict, List, Optional, Union
+
 import ollama
 from ollama import ChatResponse, GenerateResponse
+
 
 class OllamaAPI:
     def __init__(self, host: str = "http://localhost:11434"):
@@ -17,7 +19,7 @@ class OllamaAPI:
         prompt: str,
         system: Optional[str] = None,
         options: Optional[Dict] = None,
-        stream: bool = False
+        stream: bool = False,
     ) -> Union[GenerateResponse, list[GenerateResponse]]:
         """Generate a completion from the model.
 
@@ -32,11 +34,7 @@ class OllamaAPI:
             Union[GenerateResponse, list[GenerateResponse]]: Response from the model
         """
         return self.client.generate(
-            model=model,
-            prompt=prompt,
-            system=system,
-            options=options,
-            stream=stream
+            model=model, prompt=prompt, system=system, options=options, stream=stream
         )
 
     def chat(
@@ -44,7 +42,7 @@ class OllamaAPI:
         model: str,
         messages: List[Dict[str, str]],
         stream: bool = False,
-        options: Optional[Dict] = None
+        options: Optional[Dict] = None,
     ) -> Union[ChatResponse, list[ChatResponse]]:
         """Have a chat conversation with the model.
 
@@ -59,10 +57,7 @@ class OllamaAPI:
             Union[ChatResponse, list[ChatResponse]]: Response from the model
         """
         return self.client.chat(
-            model=model,
-            messages=messages,
-            options=options,
-            stream=stream
+            model=model, messages=messages, options=options, stream=stream
         )
 
     def list_models(self) -> List[Dict]:

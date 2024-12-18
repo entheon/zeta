@@ -62,7 +62,7 @@ flake8
         if ! has uv; then
             log_error "uv not found. Please install uv first."
             return 1
-        }
+        fi
 
         local venv=.venv
         if [[ ! -d $venv ]]; then

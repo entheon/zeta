@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 
-import click
 import csv
 import json
 from typing import Dict, List, Optional
+
+import click
 
 from ollama.api import OllamaAPI
 from passwords.models import Category
 
 
-def categorize_with_ollama(entry: Dict[str, str], api: Optional[OllamaAPI] = None) -> str:
+def categorize_with_ollama(
+    entry: Dict[str, str], api: Optional[OllamaAPI] = None
+) -> str:
     """Use Ollama to categorize the login based on login_uri and name."""
     if not entry.get("login_uri") and not entry.get("name"):
         return Category.NO_FOLDER.value
@@ -25,11 +28,7 @@ def categorize_with_ollama(entry: Dict[str, str], api: Optional[OllamaAPI] = Non
     Response:"""
 
     try:
-        response = api.generate(
-            model="ryanliu6/c",
-            prompt=prompt,
-            stream=False
-        )
+        response = api.generate(model="ryanliu6/c", prompt=prompt, stream=False)
         result = response.response.strip()
 
         try:
@@ -54,10 +53,17 @@ def categorize_with_ollama(entry: Dict[str, str], api: Optional[OllamaAPI] = Non
         return Category.NO_FOLDER.value
 
 
-def verify_data(original_entries: List[Dict[str, str]], new_entries: List[Dict[str, str]]) -> bool:
+def verify_data(
+    original_entries: List[Dict[str, str]], new_entries: List[Dict[str, str]]
+) -> bool:
     """Verify that no data was lost during processing."""
     if len(original_entries) != len(new_entries):
-        click.echo(f"Error: Row count mismatch! Original: {len(original_entries)}, New: {len(new_entries)}", err=True)
+        click.echo(
+            f"Error: Row count mismatch! "
+            f"Original: {len(original_entries)}, "
+            f"New: {len(new_entries)}",
+            err=True,
+        )
         return False
 
     # Verify all original fields except 'folder' are preserved
@@ -76,7 +82,9 @@ def verify_data(original_entries: List[Dict[str, str]], new_entries: List[Dict[s
 
 @click.command()
 @click.argument("csv_file", type=click.Path(exists=True))
-@click.option("--dry-run", is_flag=True, help="Show categorization without writing output file")
+@click.option(
+    "--dry-run", is_flag=True, help="Show categorization without writing output file"
+)
 def categorize(csv_file: str, dry_run: bool):
     """Categorize login entries from a CSV file using Ollama."""
 
