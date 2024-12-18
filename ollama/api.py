@@ -5,6 +5,12 @@ from ollama.types import ChatResponse, GenerateResponse
 
 
 class OllamaAPI:
+    """Client wrapper for the Ollama API.
+
+    This class provides a Pythonic interface to interact with Ollama's API,
+    supporting both chat and completion endpoints with proper type hints.
+    """
+
     def __init__(self, host: str = "http://localhost:11434") -> None:
         """Initialize the Ollama API client.
 
@@ -22,7 +28,8 @@ class OllamaAPI:
         system: Optional[str] = None,
         options: Optional[Dict[str, Any]] = None,
         stream: Literal[False] = False,
-    ) -> GenerateResponse: ...
+    ) -> GenerateResponse:
+        ...
 
     @overload
     def generate(
@@ -33,7 +40,8 @@ class OllamaAPI:
         system: Optional[str] = None,
         options: Optional[Dict[str, Any]] = None,
         stream: Literal[True],
-    ) -> List[GenerateResponse]: ...
+    ) -> List[GenerateResponse]:
+        ...
 
     def generate(
         self,

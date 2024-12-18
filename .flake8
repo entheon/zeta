@@ -1,6 +1,18 @@
 [flake8]
 max-line-length = 88
-extend-ignore = E203
+# Ignore list:
+# E203: Whitespace before ':' (black compatibility)
+# D100: Missing docstring in public module
+# D104: Missing docstring in public package
+# D107: Missing docstring in __init__
+# D203: 1 blank line required before class docstring
+# D213: Multi-line docstring summary should start at the second line
+# D401: First line of docstring should be in imperative mood
+# D406: Section name should end with a newline
+# D407: Missing dashed underline after section
+# D413: Missing blank line after last section
+extend-ignore = E203,D100,D104,D107,D203,D213,D401,D406,D407,D413
+docstring-convention = google
 exclude =
     .git,
     __pycache__,

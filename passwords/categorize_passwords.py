@@ -87,7 +87,6 @@ def verify_data(
 )
 def categorize(csv_file: str, dry_run: bool):
     """Categorize login entries from a CSV file using Ollama."""
-
     # Process the input CSV
     with open(csv_file, "r") as f:
         reader = csv.DictReader(f)

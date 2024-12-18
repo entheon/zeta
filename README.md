@@ -58,6 +58,17 @@ To run all checks manually:
 pre-commit run --all-files
 ```
 
+> [!IMPORTANT]
+> When using third-party packages, you'll need to add their type stubs to the mypy pre-commit hook. For example:
+> ```yaml
+> - repo: https://github.com/pre-commit/mirrors-mypy
+>   hooks:
+>     - id: mypy
+>       additional_dependencies:
+>         - types-requests  # for requests
+>         - types-PyYAML   # for pyyaml
+> ```
+
 ### Project Structure
 ```
 .
