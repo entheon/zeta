@@ -1,26 +1,49 @@
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union, overload
 
-import ollama
-from ollama import ChatResponse, GenerateResponse
+from ollama.client import Client
+from ollama.types import ChatResponse, GenerateResponse
 
 
 class OllamaAPI:
-    def __init__(self, host: str = "http://localhost:11434"):
+    def __init__(self, host: str = "http://localhost:11434") -> None:
         """Initialize the Ollama API client.
 
         Args:
             host (str): Host URL for Ollama API. Defaults to local instance.
         """
-        self.client = ollama.Client(host=host)
+        self.client = Client(host=host)
+
+    @overload
+    def generate(
+        self,
+        model: str,
+        prompt: str,
+        *,
+        system: Optional[str] = None,
+        options: Optional[Dict[str, Any]] = None,
+        stream: Literal[False] = False,
+    ) -> GenerateResponse: ...
+
+    @overload
+    def generate(
+        self,
+        model: str,
+        prompt: str,
+        *,
+        system: Optional[str] = None,
+        options: Optional[Dict[str, Any]] = None,
+        stream: Literal[True],
+    ) -> List[GenerateResponse]: ...
 
     def generate(
         self,
         model: str,
         prompt: str,
+        *,
         system: Optional[str] = None,
-        options: Optional[Dict] = None,
+        options: Optional[Dict[str, Any]] = None,
         stream: bool = False,
-    ) -> Union[GenerateResponse, list[GenerateResponse]]:
+    ) -> Union[GenerateResponse, List[GenerateResponse]]:
         """Generate a completion from the model.
 
         Args:
@@ -34,7 +57,11 @@ class OllamaAPI:
             Union[GenerateResponse, list[GenerateResponse]]: Response from the model
         """
         return self.client.generate(
-            model=model, prompt=prompt, system=system, options=options, stream=stream
+            model=model,
+            prompt=prompt,
+            system=system,
+            options=options or {},
+            stream=stream,
         )
 
     def chat(
@@ -42,8 +69,8 @@ class OllamaAPI:
         model: str,
         messages: List[Dict[str, str]],
         stream: bool = False,
-        options: Optional[Dict] = None,
-    ) -> Union[ChatResponse, list[ChatResponse]]:
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Union[ChatResponse, List[ChatResponse]]:
         """Have a chat conversation with the model.
 
         Args:
@@ -57,7 +84,7 @@ class OllamaAPI:
             Union[ChatResponse, list[ChatResponse]]: Response from the model
         """
         return self.client.chat(
-            model=model, messages=messages, options=options, stream=stream
+            model=model, messages=messages, stream=stream, options=options or {}
         )
 
     def list_models(self) -> List[Dict]:
