@@ -7,7 +7,7 @@ A collection of AI-powered tools and utilities.
 - `ollama/`: Python wrapper for Ollama API
 - `passwords/`: AI-powered password categorization tools
 
-## Setup
+## Development Setup
 
 1. Install uv:
     ```bash
@@ -25,16 +25,59 @@ A collection of AI-powered tools and utilities.
     uv pip install -e ".[dev]"
     ```
 
-## Development
+4. Set up pre-commit hooks:
+    ```bash
+    pip install pre-commit
+    pre-commit install
+    ```
 
-Format and lint code before committing:
+### Code Quality Tools
+
+This project uses several tools to ensure code quality:
+
+- `black`: Code formatting
+- `isort`: Import sorting
+- `flake8`: Style guide enforcement
+- `mypy`: Static type checking
+
+You can run these manually:
 ```bash
 isort .
 black .
 flake8
+mypy .
 ```
 
-## Using direnv (recommended)
+Or let pre-commit run them automatically on `git commit`. If any check fails:
+1. The commit will be aborted
+2. The tools will make the necessary changes (if possible)
+3. Stage the changes (`git add`) and try the commit again
+
+To run all checks manually:
+```bash
+pre-commit run --all-files
+```
+
+### Project Structure
+```
+.
+├── src/
+│   └── __init__.py
+├── .flake8
+├── .gitignore
+├── .pre-commit-config.yaml
+├── pyproject.toml
+└── README.md
+```
+
+### Configuration Files
+- `pyproject.toml`: Project metadata, dependencies, and tool settings (Black, isort, mypy)
+- `.pre-commit-config.yaml`: Pre-commit hook configurations
+- `.flake8`: Flake8 settings
+
+## Using direnv (optional)
+
+direnv automatically activates your virtual environment when entering the project directory.
 
 1. Install direnv:
     ```bash
@@ -82,25 +125,3 @@ flake8
     echo 'layout python-venv' > .envrc
     direnv allow
     ```
-
-Now whenever you enter the project directory, direnv will:
-- Automatically activate the virtual environment
-- Create the venv and install dependencies if they don't exist
-- Set up any environment variables
-
-## Project Structure
-```
-.
-├── ollama/
-│   └── api.py
-├── passwords/
-│   ├── categorize_passwords.py
-│   ├── Modelfile
-│   ├── categorize.modelfile
-│   └── README.md
-├── .flake8
-├── .gitignore
-├── .envrc
-├── pyproject.toml
-└── README.md
-```
