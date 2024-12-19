@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 
 import click
 
-from ollama.api import OllamaAPI
+from llm.api import OllamaAPI
 from passwords.models import Category
 
 
