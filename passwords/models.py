@@ -13,7 +13,7 @@ class Category(str, Enum):
     EDUCATION = "Education"
     TRAVEL = "Travel"
     HEALTH = "Health"
-    NO_FOLDER = "No Folder"
+    NO_FOLDER = "No folder"
 
     @classmethod
     def values(cls) -> Set[str]:
@@ -26,9 +26,9 @@ class Category(str, Enum):
         return {
             cls.FINANCE.value: "banking, investments, money management",
             cls.SHOPPING.value: "retail, e-commerce, marketplaces",
-            cls.SOCIAL.value: "social media, messaging, forums",
+            cls.SOCIAL.value: "social media, messaging, forums, email",
             cls.ENTERTAINMENT.value: "streaming, games, media",
-            cls.WORK.value: "business tools, productivity",
+            cls.WORK.value: "business tools, productivity, work email",
             cls.EDUCATION.value: "learning platforms, academic",
             cls.TRAVEL.value: "airlines, hotels, booking",
             cls.HEALTH.value: "medical, fitness, wellness",

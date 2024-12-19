@@ -21,14 +21,13 @@ def categorize_with_ollama(
         api = OllamaAPI()
 
     # Prepare context for the model
-    prompt = f"""
-    URL: {entry.get("login_uri", "")}
-    Name: {entry.get("name", "")}
-
-    Response:"""
+    prompt = f"""{{
+    "url": "{entry.get('login_uri', '')}",
+    "name": "{entry.get('name', '')}"
+}}"""
 
     try:
-        response = api.generate(model="ryanliu6/c", prompt=prompt, stream=False)
+        response = api.generate(model="ryanliu6/xipe", prompt=prompt, stream=False)
         result = response.response.strip()
 
         try:
@@ -37,15 +36,18 @@ def categorize_with_ollama(
             category = categorization["category"]
             confidence = categorization["confidence"]
 
-            # If category is valid and confidence is high enough, use it
-            if category in Category.values():
-                if category == Category.NO_FOLDER.value or confidence < 0.4:
-                    return Category.NO_FOLDER.value
+            # Validate category and confidence
+            if category not in Category.values():
+                click.echo(f"Invalid category from model: {category}", err=True)
+                return Category.NO_FOLDER.value
+
+            # Use confidence thresholds from Modelfile
+            if confidence >= 0.4 and category != Category.NO_FOLDER.value:
                 return category
             return Category.NO_FOLDER.value
 
-        except (json.JSONDecodeError, KeyError):
-            click.echo(f"Error parsing model response: {result}", err=True)
+        except (json.JSONDecodeError, KeyError) as e:
+            click.echo(f"Error parsing model response: {result} ({e})", err=True)
             return Category.NO_FOLDER.value
 
     except Exception as e:

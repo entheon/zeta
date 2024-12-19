@@ -1,7 +1,6 @@
 from typing import Any, Dict, List, Literal, Optional, Union, overload
 
-from ollama.client import Client
-from ollama.types import ChatResponse, GenerateResponse
+from ollama import ChatResponse, Client, GenerateResponse
 
 
 class OllamaAPI:
