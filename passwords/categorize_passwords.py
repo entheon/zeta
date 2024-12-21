@@ -11,7 +11,8 @@ from passwords.models import Category
 
 
 def categorize_with_ollama(
-    entry: Dict[str, str], api: Optional[OllamaAPI] = None
+    entry: Dict[str, str],
+    api: Optional[OllamaAPI] = None,
 ) -> str:
     """Use Ollama to categorize the login based on login_uri and name."""
     if not entry.get("login_uri") and not entry.get("name"):
@@ -37,8 +38,8 @@ def categorize_with_ollama(
         try:
             # Parse the JSON response
             categorization = json.loads(result)
-            category = categorization["category"]
-            confidence = categorization["confidence"]
+            category = str(categorization["category"])
+            confidence = float(categorization["confidence"])
 
             # Validate category and confidence
             if category not in Category.values():
@@ -60,7 +61,8 @@ def categorize_with_ollama(
 
 
 def verify_data(
-    original_entries: List[Dict[str, str]], new_entries: List[Dict[str, str]]
+    original_entries: List[Dict[str, str]],
+    new_entries: List[Dict[str, str]],
 ) -> bool:
     """Verify that no data was lost during processing."""
     if len(original_entries) != len(new_entries):
@@ -89,12 +91,14 @@ def verify_data(
 @click.command()
 @click.argument("csv_file", type=click.Path(exists=True))
 @click.option(
-    "--dry-run", is_flag=True, help="Show categorization without writing output file"
+    "--dry-run",
+    is_flag=True,
+    help="Show categorization without writing output file",
 )
-def categorize(csv_file: str, dry_run: bool):
+def categorize(csv_file: str, dry_run: bool) -> None:
     """Categorize login entries from a CSV file using Ollama."""
     # Process the input CSV
-    with open(csv_file, "r") as f:
+    with open(csv_file) as f:
         reader = csv.DictReader(f)
         original_entries = list(reader)
 

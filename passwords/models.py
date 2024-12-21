@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Set
+from typing import Dict, Set
 
 
 class Category(str, Enum):
@@ -21,7 +21,7 @@ class Category(str, Enum):
         return {item.value for item in cls}
 
     @classmethod
-    def descriptions(cls) -> dict[str, str]:
+    def descriptions(cls) -> Dict[str, str]:
         """Get category descriptions."""
         return {
             cls.FINANCE.value: "banking, investments, money management",

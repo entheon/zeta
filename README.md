@@ -35,16 +35,13 @@ A collection of AI-powered tools and utilities.
 
 This project uses several tools to ensure code quality:
 
-- `black`: Code formatting
-- `isort`: Import sorting
-- `flake8`: Style guide enforcement
+- `ruff`: Code formatting, linting, and import sorting
 - `mypy`: Static type checking
 
 You can run these manually:
 ```bash
-isort .
-black .
-flake8
+ruff check .
+ruff format .
 mypy .
 ```
 
@@ -74,7 +71,6 @@ pre-commit run --all-files
 .
 ├── src/
 │   └── __init__.py
-├── .flake8
 ├── .gitignore
 ├── .pre-commit-config.yaml
 ├── pyproject.toml
@@ -82,9 +78,28 @@ pre-commit run --all-files
 ```
 
 ### Configuration Files
-- `pyproject.toml`: Project metadata, dependencies, and tool settings (Black, isort, mypy)
+- `pyproject.toml`: Project metadata, dependencies, and tool settings (ruff, mypy)
 - `.pre-commit-config.yaml`: Pre-commit hook configurations
-- `.flake8`: Flake8 settings
+-
+- ### Version Syncing
+-
+- The project includes automatic version syncing between dev dependencies in `pyproject.toml` and pre-commit hooks in `.pre-commit-config.yaml`. When you update a version in `pyproject.toml`, the corresponding pre-commit hook will be updated automatically on the next commit.
+-
+- For example, if you update the ruff version in `pyproject.toml`:
+- ```toml
+- dev = [
+-     "ruff>=0.3.1",  # Update this version
+-     # ...
+- ]
+- ```
+-
+- The pre-commit hook will be automatically updated to match:
+- ```yaml
+- - repo: https://github.com/astral-sh/ruff-pre-commit
+-   rev: v0.3.1  # This will be updated automatically
+- ```
+-
+- This ensures that the versions stay in sync and prevents version mismatch issues.
 
 ## Using direnv (optional)
 
