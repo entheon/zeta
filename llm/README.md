@@ -8,20 +8,22 @@ A Python wrapper for the Ollama API, providing a simple interface to interact wi
 - Model management (listing and pulling models)
 - Support for streaming responses
 - Built on the official Ollama Python client
+- Type-safe API with proper Literal types
 
 ## Usage
 
 ### Basic Generation
 
 ```python
-from ollama.api import OllamaAPI
+from llm.api import OllamaAPI
 
 api = OllamaAPI()
 
-# Generate text
+# Generate text (non-streaming)
 response = api.generate(
     model="llama2",
     prompt="Write a haiku about coding",
+    stream=False,  # Type system enforces non-streaming
 )
 print(response.response)
 ```
@@ -29,27 +31,18 @@ print(response.response)
 ### Chat Conversations
 
 ```python
+from typing import Dict, Any
+
 # Have a chat conversation
-messages = [
+messages: list[Dict[str, Any]] = [
     {"role": "user", "content": "What is the capital of France?"}
 ]
 response = api.chat(
     model="llama2",
-    messages=messages
+    messages=messages,
+    stream=False,
 )
 print(response.message.content)
-```
-
-### Streaming Responses
-
-```python
-# Stream a generation
-for chunk in api.generate(
-    model="llama2",
-    prompt="Tell me a story",
-    stream=True
-):
-    print(chunk.response, end="", flush=True)
 ```
 
 ### Model Management
@@ -74,15 +67,15 @@ class OllamaAPI:
 
 #### Methods
 
-- `generate(model: str, prompt: str, system: Optional[str] = None, options: Optional[Dict] = None, stream: bool = False)`
+- `generate(model: str, prompt: str, *, system: str = "", options: Optional[Union[Mapping[str, Any], Options]] = None, stream: Literal[False] = False) -> GenerateResponse`
   - Generate text from a prompt
-  - Returns `GenerateResponse` or list of `GenerateResponse` if streaming
+  - Non-streaming only, returns single `GenerateResponse`
 
-- `chat(model: str, messages: List[Dict[str, str]], stream: bool = False, options: Optional[Dict] = None)`
+- `chat(model: str, messages: Sequence[Union[Mapping[str, Any], Message]], stream: Literal[True, False] = False, options: Optional[Union[Mapping[str, Any], Options]] = None) -> Union[ChatResponse, Iterator[ChatResponse]]`
   - Have a chat conversation
-  - Returns `ChatResponse` or list of `ChatResponse` if streaming
+  - Returns `ChatResponse` or `Iterator[ChatResponse]` based on `stream`
 
-- `list_models() -> List[Dict]`
+- `list_models() -> ListResponse`
   - List available models
 
 - `pull_model(model: str) -> None`

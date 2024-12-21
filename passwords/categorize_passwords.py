@@ -27,7 +27,11 @@ def categorize_with_ollama(
 }}"""
 
     try:
-        response = api.generate(model="ryanliu6/xipe", prompt=prompt, stream=False)
+        response = api.generate(
+            model="ryanliu6/xipe",
+            prompt=prompt,
+            stream=False,
+        )
         result = response.response.strip()
 
         try:

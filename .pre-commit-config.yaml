@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/psf/black
-    rev: 23.12.1
+    rev: 24.10.0
     hooks:
       - id: black
         language_version: python3
@@ -12,17 +12,16 @@ repos:
         name: isort (python)
 
   - repo: https://github.com/pycqa/flake8
-    rev: 6.1.0
+    rev: 7.1.1
     hooks:
       - id: flake8
         additional_dependencies: [flake8-docstrings]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
+    rev: v1.13.0
     hooks:
       - id: mypy
+        exclude: (\.venv|venv|\.git|\.eggs|\.mypy_cache|build|dist)
         additional_dependencies:
           - types-click
-          - types-requests
-          - types-PyYAML
-        exclude: ^(docs/|example-plugin/|tests/fixtures)
+          - ollama  # Add ollama as a dependency for pre-commit mypy

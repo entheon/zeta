@@ -1,6 +1,13 @@
-from typing import Any, Dict, List, Literal, Optional, Union, overload
+from typing import Any, Iterator, Literal, Mapping, Optional, Sequence, Union
 
-from ollama import ChatResponse, Client, GenerateResponse
+from ollama import (
+    ChatResponse,
+    Client,
+    GenerateResponse,
+    ListResponse,
+    Message,
+    Options,
+)
 
 
 class OllamaAPI:
@@ -18,50 +25,27 @@ class OllamaAPI:
         """
         self.client = Client(host=host)
 
-    @overload
     def generate(
         self,
         model: str,
         prompt: str,
         *,
-        system: Optional[str] = None,
-        options: Optional[Dict[str, Any]] = None,
+        system: str = "",
+        options: Optional[Union[Mapping[str, Any], Options]] = None,
         stream: Literal[False] = False,
     ) -> GenerateResponse:
-        ...
-
-    @overload
-    def generate(
-        self,
-        model: str,
-        prompt: str,
-        *,
-        system: Optional[str] = None,
-        options: Optional[Dict[str, Any]] = None,
-        stream: Literal[True],
-    ) -> List[GenerateResponse]:
-        ...
-
-    def generate(
-        self,
-        model: str,
-        prompt: str,
-        *,
-        system: Optional[str] = None,
-        options: Optional[Dict[str, Any]] = None,
-        stream: bool = False,
-    ) -> Union[GenerateResponse, List[GenerateResponse]]:
         """Generate a completion from the model.
 
         Args:
             model (str): Name of the model to use
             prompt (str): The prompt to generate from
-            system (str, optional): System prompt to use
-            options (Dict, optional): Additional model parameters
-            stream (bool): Whether to stream the response
+            system (str): System prompt to use. Defaults to empty string.
+            options (Union[Mapping[str, Any], Options], optional): Additional model
+                parameters
+            stream (Literal[False]): Must be False, streaming not supported
 
         Returns:
-            Union[GenerateResponse, list[GenerateResponse]]: Response from the model
+            GenerateResponse: Single response from the model
         """
         return self.client.generate(
             model=model,
@@ -74,31 +58,36 @@ class OllamaAPI:
     def chat(
         self,
         model: str,
-        messages: List[Dict[str, str]],
-        stream: bool = False,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Union[ChatResponse, List[ChatResponse]]:
+        messages: Sequence[Union[Mapping[str, Any], Message]],
+        stream: Literal[True, False] = False,
+        options: Optional[Union[Mapping[str, Any], Options]] = None,
+    ) -> Union[ChatResponse, Iterator[ChatResponse]]:
         """Have a chat conversation with the model.
 
         Args:
             model (str): Name of the model to use
-            messages (List[Dict[str, str]]): List of messages in the conversation
+            messages (Sequence[Union[Mapping[str, Any], Message]]): List of messages
                 Format: [{"role": "user", "content": "Hello"}, ...]
-            stream (bool): Whether to stream the response
-            options (Optional[Dict]): Additional model parameters
+            stream (Literal[True, False]): Whether to stream the response
+            options (Union[Mapping[str, Any], Options], optional): Additional model
+                parameters
 
         Returns:
-            Union[ChatResponse, list[ChatResponse]]: Response from the model
+            Union[ChatResponse, Iterator[ChatResponse]]: Single response or stream of
+                responses
         """
         return self.client.chat(
-            model=model, messages=messages, stream=stream, options=options or {}
+            model=model,
+            messages=messages,
+            stream=stream,
+            options=options or {},
         )
 
-    def list_models(self) -> List[Dict]:
+    def list_models(self) -> ListResponse:
         """List all available models.
 
         Returns:
-            List[Dict]: List of available models and their details
+            ListResponse: List of available models and their details
         """
         return self.client.list()
 
