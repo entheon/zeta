@@ -46,6 +46,7 @@ build-backend = "hatchling.build"
 packages = ["llm", "passwords"]
 
 [tool.ruff]
+line-length = 88
 target-version = "py38"
 
 [tool.ruff.format]
