@@ -3,7 +3,7 @@
 
 import re
 from pathlib import Path
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 import tomli
 import tomli_w
@@ -20,9 +20,9 @@ def write_pyproject(path: Path, data: dict) -> None:
     path.write_text(tomli_w.dumps(data))
 
 
-def load_yaml(file_path: Path) -> Dict[Any, Any]:
+def load_yaml(file_path: Path) -> dict[Any, Any]:
     with open(file_path) as f:
-        return cast(Dict[Any, Any], yaml.safe_load(f))
+        return cast(dict[Any, Any], yaml.safe_load(f))
 
 
 def write_precommit(path: Path, data: dict) -> None:
@@ -32,7 +32,11 @@ def write_precommit(path: Path, data: dict) -> None:
 
 def get_dev_dependency_version(pyproject: dict, package: str) -> str:
     """Get version of a dev dependency from pyproject.toml."""
-    dev_deps = pyproject["project"]["optional-dependencies"]["dev"]
+    if "dependency-groups" in pyproject:
+        dev_deps = pyproject["dependency-groups"]["dev"]
+    else:
+        dev_deps = pyproject["project"]["optional-dependencies"]["dev"]
+
     for dep in dev_deps:
         if dep.startswith(package):
             match = re.match(rf"{package}>=(\d+\.\d+\.\d+)", dep)

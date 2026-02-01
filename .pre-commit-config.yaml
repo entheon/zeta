@@ -11,7 +11,7 @@ repos:
     - tomli-w>=1.0.0
     - pyyaml>=6.0.1
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.3.0
+  rev: v0.9.0
   hooks:
   - id: ruff
   - id: ruff-format
@@ -20,6 +20,7 @@ repos:
   hooks:
   - id: mypy
     exclude: (\.venv|venv|\.git|\.eggs|\.mypy_cache|build|dist)
+    files: ^(llm|modules)/
     additional_dependencies:
     - types-click
     - types-PyYAML

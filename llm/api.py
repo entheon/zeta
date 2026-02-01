@@ -1,4 +1,5 @@
-from typing import Any, Iterator, Literal, Mapping, Optional, Sequence, Union
+from collections.abc import Iterator, Mapping, Sequence
+from typing import Any, Literal, Optional, Union, overload
 
 from ollama import (
     ChatResponse,
@@ -54,6 +55,24 @@ class OllamaAPI:
             options=options or {},
             stream=stream,
         )
+
+    @overload
+    def chat(
+        self,
+        model: str,
+        messages: Sequence[Union[Mapping[str, Any], Message]],
+        stream: Literal[False] = False,
+        options: Optional[Union[Mapping[str, Any], Options]] = None,
+    ) -> ChatResponse: ...
+
+    @overload
+    def chat(
+        self,
+        model: str,
+        messages: Sequence[Union[Mapping[str, Any], Message]],
+        stream: Literal[True],
+        options: Optional[Union[Mapping[str, Any], Options]] = None,
+    ) -> Iterator[ChatResponse]: ...
 
     def chat(
         self,

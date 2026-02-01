@@ -2,16 +2,23 @@
 
 import csv
 import json
-from typing import Dict, List, Optional
+from typing import Optional
 
 import click
 
-from llm.api import OllamaAPI
-from passwords.models import Category
+from llm import OllamaAPI
+from modules.passwords.models import Category
+
+SYSTEM_PROMPT = """You are a password categorization assistant.
+Given a URL and name, categorize the login into exactly one category.
+Respond with ONLY valid JSON: {"category": "<category>", "confidence": <0.0-1.0>}
+
+Categories: Finance, Shopping, Social, Entertainment, Work, Education, Travel,
+Health, No folder"""
 
 
 def categorize_with_ollama(
-    entry: Dict[str, str],
+    entry: dict[str, str],
     api: Optional[OllamaAPI] = None,
 ) -> str:
     """Use Ollama to categorize the login based on login_uri and name."""
@@ -21,32 +28,38 @@ def categorize_with_ollama(
     if api is None:
         api = OllamaAPI()
 
-    # Prepare context for the model
-    prompt = f"""{{
-    "url": "{entry.get('login_uri', '')}",
-    "name": "{entry.get('name', '')}"
-}}"""
+    user_content = json.dumps(
+        {
+            "url": entry.get("login_uri", ""),
+            "name": entry.get("name", ""),
+        }
+    )
 
     try:
-        response = api.generate(
-            model="ryanliu6/xipe",
-            prompt=prompt,
+        response = api.chat(
+            model="qwen3",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_content},
+            ],
             stream=False,
         )
-        result = response.response.strip()
+
+        if not response.message.content:
+            click.echo("Empty response from model", err=True)
+            return Category.NO_FOLDER.value
+
+        result = response.message.content.strip()
 
         try:
-            # Parse the JSON response
             categorization = json.loads(result)
             category = str(categorization["category"])
             confidence = float(categorization["confidence"])
 
-            # Validate category and confidence
             if category not in Category.values():
                 click.echo(f"Invalid category from model: {category}", err=True)
                 return Category.NO_FOLDER.value
 
-            # Use confidence thresholds from Modelfile
             if confidence >= 0.4 and category != Category.NO_FOLDER.value:
                 return category
             return Category.NO_FOLDER.value
@@ -61,8 +74,8 @@ def categorize_with_ollama(
 
 
 def verify_data(
-    original_entries: List[Dict[str, str]],
-    new_entries: List[Dict[str, str]],
+    original_entries: list[dict[str, str]],
+    new_entries: list[dict[str, str]],
 ) -> bool:
     """Verify that no data was lost during processing."""
     if len(original_entries) != len(new_entries):
@@ -75,7 +88,7 @@ def verify_data(
         return False
 
     # Verify all original fields except 'folder' are preserved
-    for i, (orig, new) in enumerate(zip(original_entries, new_entries)):
+    for i, (orig, new) in enumerate(zip(original_entries, new_entries, strict=True)):
         orig_fields = {k: v for k, v in orig.items() if k != "folder"}
         new_fields = {k: v for k, v in new.items() if k != "folder"}
 
