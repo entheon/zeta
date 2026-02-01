@@ -13,8 +13,8 @@ class Category(str, Enum):
     NO_FOLDER = "No folder"
 
     @classmethod
-    def values(cls) -> set[str]:
-        return {item.value for item in cls}
+    def values(cls) -> list[str]:
+        return [item.value for item in cls]
 
     @classmethod
     def descriptions(cls) -> dict[str, str]:

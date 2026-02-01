@@ -1,26 +1,20 @@
 #!/usr/bin/env python3
 
 import json
-import os
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Optional
 
 import click
 
-from llm import OllamaAPI
+from llm import OllamaAPI, categorize_with_llm
 from modules.emails.models import EmailCategory
-
-MODEL = os.environ.get("ZETA_MODEL", "qwen3:8b")
 
 
 def categorize_email(
     email_data: dict[str, str],
     api: Optional[OllamaAPI] = None,
 ) -> dict[str, Any]:
-    if api is None:
-        api = OllamaAPI()
-
     subject = email_data.get("subject", "")
     from_address = email_data.get("from_address", "")
 
@@ -30,62 +24,17 @@ def categorize_email(
             "confidence": 1.0,
         }
 
-    user_content = json.dumps(
-        {
-            "subject": subject,
-            "from": from_address,
-        }
+    data = {
+        "subject": subject,
+        "from": from_address,
+    }
+
+    return categorize_with_llm(
+        data=data,
+        category_enum=EmailCategory,
+        default_category=EmailCategory.UNCATEGORIZED.value,
+        api=api,
     )
-
-    try:
-        response = api.chat(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": EmailCategory.build_system_prompt()},
-                {"role": "user", "content": user_content},
-            ],
-            stream=False,
-        )
-
-        if not response.message.content:
-            click.echo("Empty response from model", err=True)
-            return {
-                "category": EmailCategory.UNCATEGORIZED.value,
-                "confidence": 0.0,
-            }
-
-        result = response.message.content.strip()
-
-        try:
-            categorization = json.loads(result)
-            category = str(categorization["category"])
-            confidence = float(categorization["confidence"])
-
-            if category not in EmailCategory.values():
-                click.echo(f"Invalid category from model: {category}", err=True)
-                return {
-                    "category": EmailCategory.UNCATEGORIZED.value,
-                    "confidence": 0.0,
-                }
-
-            return {
-                "category": category,
-                "confidence": confidence,
-            }
-
-        except (json.JSONDecodeError, KeyError) as e:
-            click.echo(f"Error parsing model response: {result} ({e})", err=True)
-            return {
-                "category": EmailCategory.UNCATEGORIZED.value,
-                "confidence": 0.0,
-            }
-
-    except Exception as e:
-        click.echo(f"Error calling Ollama: {e}", err=True)
-        return {
-            "category": EmailCategory.UNCATEGORIZED.value,
-            "confidence": 0.0,
-        }
 
 
 def extract_domain(email_address: str) -> Optional[str]:

@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 
 import csv
-import json
-import os
 from typing import Optional
 
 import click
 
-from llm import OllamaAPI
+from llm import OllamaAPI, categorize_with_llm
 from modules.passwords.models import Category
-
-MODEL = os.environ.get("ZETA_MODEL", "qwen3:8b")
 
 
 def categorize_with_ollama(
@@ -20,52 +16,24 @@ def categorize_with_ollama(
     if not entry.get("login_uri") and not entry.get("name"):
         return Category.NO_FOLDER.value
 
-    if api is None:
-        api = OllamaAPI()
+    data = {
+        "url": entry.get("login_uri", ""),
+        "name": entry.get("name", ""),
+    }
 
-    user_content = json.dumps(
-        {
-            "url": entry.get("login_uri", ""),
-            "name": entry.get("name", ""),
-        }
+    result = categorize_with_llm(
+        data=data,
+        category_enum=Category,
+        default_category=Category.NO_FOLDER.value,
+        api=api,
     )
 
-    try:
-        response = api.chat(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": Category.build_system_prompt()},
-                {"role": "user", "content": user_content},
-            ],
-            stream=False,
-        )
+    category = str(result["category"])
+    confidence = float(result["confidence"])
 
-        if not response.message.content:
-            click.echo("Empty response from model", err=True)
-            return Category.NO_FOLDER.value
-
-        result = response.message.content.strip()
-
-        try:
-            categorization = json.loads(result)
-            category = str(categorization["category"])
-            confidence = float(categorization["confidence"])
-
-            if category not in Category.values():
-                click.echo(f"Invalid category from model: {category}", err=True)
-                return Category.NO_FOLDER.value
-
-            if confidence >= 0.4 and category != Category.NO_FOLDER.value:
-                return category
-            return Category.NO_FOLDER.value
-
-        except (json.JSONDecodeError, KeyError) as e:
-            click.echo(f"Error parsing model response: {result} ({e})", err=True)
-            return Category.NO_FOLDER.value
-
-    except Exception as e:
-        click.echo(f"Error calling Ollama: {e}", err=True)
-        return Category.NO_FOLDER.value
+    if confidence >= 0.4 and category != Category.NO_FOLDER.value:
+        return category
+    return Category.NO_FOLDER.value
 
 
 def verify_data(
