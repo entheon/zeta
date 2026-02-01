@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Sync versions between pyproject.toml and pre-commit-config.yaml."""
 
 import re
 from pathlib import Path
@@ -10,28 +9,24 @@ import tomli_w
 import yaml
 
 
-def read_pyproject(path: Path) -> dict:
-    """Read pyproject.toml file."""
+def read_pyproject(path: Path) -> dict[str, Any]:
     return tomli.loads(path.read_text())
 
 
-def write_pyproject(path: Path, data: dict) -> None:
-    """Write pyproject.toml file."""
+def write_pyproject(path: Path, data: dict[str, Any]) -> None:
     path.write_text(tomli_w.dumps(data))
 
 
-def load_yaml(file_path: Path) -> dict[Any, Any]:
+def load_yaml(file_path: Path) -> dict[str, Any]:
     with open(file_path) as f:
-        return cast(dict[Any, Any], yaml.safe_load(f))
+        return cast(dict[str, Any], yaml.safe_load(f))
 
 
-def write_precommit(path: Path, data: dict) -> None:
-    """Write pre-commit-config.yaml file."""
+def write_precommit(path: Path, data: dict[str, Any]) -> None:
     path.write_text(yaml.safe_dump(data, sort_keys=False))
 
 
-def get_dev_dependency_version(pyproject: dict, package: str) -> str:
-    """Get version of a dev dependency from pyproject.toml."""
+def get_dev_dependency_version(pyproject: dict[str, Any], package: str) -> str:
     if "dependency-groups" in pyproject:
         dev_deps = pyproject["dependency-groups"]["dev"]
     else:
@@ -45,15 +40,15 @@ def get_dev_dependency_version(pyproject: dict, package: str) -> str:
     raise ValueError(f"Package {package} not found in dev dependencies")
 
 
-def update_precommit_rev(precommit: dict, repo_url: str, version: str) -> None:
-    """Update revision of a pre-commit hook."""
+def update_precommit_rev(
+    precommit: dict[str, Any], repo_url: str, version: str
+) -> None:
     for repo in precommit["repos"]:
         if repo["repo"] == repo_url:
             repo["rev"] = f"v{version}"
 
 
 def main() -> None:
-    """Main function."""
     root = Path(__file__).parent.parent
     pyproject_path = root / "pyproject.toml"
     precommit_path = root / ".pre-commit-config.yaml"

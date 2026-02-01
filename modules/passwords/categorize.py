@@ -21,7 +21,6 @@ def categorize_with_ollama(
     entry: dict[str, str],
     api: Optional[OllamaAPI] = None,
 ) -> str:
-    """Use Ollama to categorize the login based on login_uri and name."""
     if not entry.get("login_uri") and not entry.get("name"):
         return Category.NO_FOLDER.value
 
@@ -77,7 +76,6 @@ def verify_data(
     original_entries: list[dict[str, str]],
     new_entries: list[dict[str, str]],
 ) -> bool:
-    """Verify that no data was lost during processing."""
     if len(original_entries) != len(new_entries):
         click.echo(
             f"Error: Row count mismatch! "
@@ -109,7 +107,6 @@ def verify_data(
     help="Show categorization without writing output file",
 )
 def categorize(csv_file: str, dry_run: bool) -> None:
-    """Categorize login entries from a CSV file using Ollama."""
     # Process the input CSV
     with open(csv_file) as f:
         reader = csv.DictReader(f)

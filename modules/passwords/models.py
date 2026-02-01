@@ -2,7 +2,6 @@ from enum import Enum
 
 
 class Category(str, Enum):
-    """Categories for password organization."""
 
     FINANCE = "Finance"
     SHOPPING = "Shopping"
@@ -16,12 +15,10 @@ class Category(str, Enum):
 
     @classmethod
     def values(cls) -> set[str]:
-        """Get all valid category values."""
         return {item.value for item in cls}
 
     @classmethod
     def descriptions(cls) -> dict[str, str]:
-        """Get category descriptions."""
         return {
             cls.FINANCE.value: "banking, investments, money management",
             cls.SHOPPING.value: "retail, e-commerce, marketplaces",
@@ -36,7 +33,6 @@ class Category(str, Enum):
 
     @classmethod
     def format_for_prompt(cls) -> str:
-        """Format categories for use in model prompts."""
         descriptions = cls.descriptions()
         return (
             "\n".join(

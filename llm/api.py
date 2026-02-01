@@ -22,7 +22,7 @@ class OllamaAPI:
         """Initialize the Ollama API client.
 
         Args:
-            host (str): Host URL for Ollama API. Defaults to local instance.
+            host: Host URL for Ollama API. Defaults to local instance.
         """
         self.client = Client(host=host)
 
@@ -38,15 +38,14 @@ class OllamaAPI:
         """Generate a completion from the model.
 
         Args:
-            model (str): Name of the model to use
-            prompt (str): The prompt to generate from
-            system (str): System prompt to use. Defaults to empty string.
-            options (Union[Mapping[str, Any], Options], optional): Additional model
-                parameters
-            stream (Literal[False]): Must be False, streaming not supported
+            model: Name of the model to use.
+            prompt: The prompt to generate from.
+            system: System prompt to use. Defaults to empty string.
+            options: Additional model parameters.
+            stream: Must be False, streaming not supported.
 
         Returns:
-            GenerateResponse: Single response from the model
+            Single response from the model.
         """
         return self.client.generate(
             model=model,
@@ -84,16 +83,14 @@ class OllamaAPI:
         """Have a chat conversation with the model.
 
         Args:
-            model (str): Name of the model to use
-            messages (Sequence[Union[Mapping[str, Any], Message]]): List of messages
-                Format: [{"role": "user", "content": "Hello"}, ...]
-            stream (Literal[True, False]): Whether to stream the response
-            options (Union[Mapping[str, Any], Options], optional): Additional model
-                parameters
+            model: Name of the model to use.
+            messages: List of messages.
+                Format: [{"role": "user", "content": "Hello"}, ...].
+            stream: Whether to stream the response.
+            options: Additional model parameters.
 
         Returns:
-            Union[ChatResponse, Iterator[ChatResponse]]: Single response or stream of
-                responses
+            Single response or stream of responses based on stream parameter.
         """
         return self.client.chat(
             model=model,
@@ -106,7 +103,7 @@ class OllamaAPI:
         """List all available models.
 
         Returns:
-            ListResponse: List of available models and their details
+            List of available models and their details.
         """
         return self.client.list()
 
@@ -114,6 +111,6 @@ class OllamaAPI:
         """Pull a model from the Ollama library.
 
         Args:
-            model (str): Name of the model to pull
+            model: Name of the model to pull.
         """
         self.client.pull(model)
