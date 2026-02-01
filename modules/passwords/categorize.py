@@ -2,12 +2,15 @@
 
 import csv
 import json
+import os
 from typing import Optional
 
 import click
 
 from llm import OllamaAPI
 from modules.passwords.models import Category
+
+MODEL = os.environ.get("ZETA_MODEL", "qwen3:8b")
 
 
 def categorize_with_ollama(
@@ -29,7 +32,7 @@ def categorize_with_ollama(
 
     try:
         response = api.chat(
-            model="qwen3",
+            model=MODEL,
             messages=[
                 {"role": "system", "content": Category.build_system_prompt()},
                 {"role": "user", "content": user_content},

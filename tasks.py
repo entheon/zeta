@@ -32,6 +32,11 @@ def lint(c):
 
 
 @task
+def mypy(c):
+    c.run("uv run mypy llm/ modules/")
+
+
+@task
 def format(c):
     c.run("uv run ruff check --fix .")
     c.run("uv run ruff format .")

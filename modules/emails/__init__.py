@@ -1,0 +1,1 @@
+"""Email categorization module."""
