@@ -2,7 +2,6 @@ from enum import Enum
 
 
 class Category(str, Enum):
-
     FINANCE = "Finance"
     SHOPPING = "Shopping"
     SOCIAL = "Social"
@@ -42,3 +41,20 @@ class Category(str, Enum):
             )
             + f"\n- {cls.NO_FOLDER.value} ({descriptions[cls.NO_FOLDER.value]})"
         )
+
+    @classmethod
+    def build_system_prompt(cls) -> str:
+        """Build the system prompt for password categorization.
+
+        Returns:
+            Complete system prompt with all category definitions.
+        """
+        return f"""
+            You are a password categorization assistant.
+            Given a URL and name, categorize the login into exactly one category.
+            Respond with ONLY valid JSON:
+            {{"category": "<category>", "confidence": <0.0-1.0>}}
+
+            Categories:
+            {cls.format_for_prompt()}
+        """

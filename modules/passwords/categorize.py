@@ -9,13 +9,6 @@ import click
 from llm import OllamaAPI
 from modules.passwords.models import Category
 
-SYSTEM_PROMPT = """You are a password categorization assistant.
-Given a URL and name, categorize the login into exactly one category.
-Respond with ONLY valid JSON: {"category": "<category>", "confidence": <0.0-1.0>}
-
-Categories: Finance, Shopping, Social, Entertainment, Work, Education, Travel,
-Health, No folder"""
-
 
 def categorize_with_ollama(
     entry: dict[str, str],
@@ -38,7 +31,7 @@ def categorize_with_ollama(
         response = api.chat(
             model="qwen3",
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": Category.build_system_prompt()},
                 {"role": "user", "content": user_content},
             ],
             stream=False,

@@ -8,16 +8,15 @@ from modules.passwords.models import Category
 
 
 @pytest.fixture
-def mock_api():
+def mock_api() -> MagicMock:
     return MagicMock()
 
 
-def test_categorize_with_ollama(mock_api):
+def test_categorize_with_ollama(mock_api: MagicMock) -> None:
     mock_response = MagicMock()
-    mock_response.message.content = json.dumps({
-        "category": "Finance",
-        "confidence": 0.9
-    })
+    mock_response.message.content = json.dumps(
+        {"category": "Finance", "confidence": 0.9}
+    )
     mock_api.chat.return_value = mock_response
 
     entry = {"login_uri": "https://bank.com", "name": "My Bank"}
@@ -27,7 +26,7 @@ def test_categorize_with_ollama(mock_api):
     mock_api.chat.assert_called_once()
 
 
-def test_categorize_with_ollama_empty_entry(mock_api):
+def test_categorize_with_ollama_empty_entry(mock_api: MagicMock) -> None:
     entry = {"login_uri": "", "name": ""}
     result = categorize_with_ollama(entry, api=mock_api)
 
@@ -35,12 +34,11 @@ def test_categorize_with_ollama_empty_entry(mock_api):
     mock_api.chat.assert_not_called()
 
 
-def test_categorize_with_ollama_low_confidence(mock_api):
+def test_categorize_with_ollama_low_confidence(mock_api: MagicMock) -> None:
     mock_response = MagicMock()
-    mock_response.message.content = json.dumps({
-        "category": "Finance",
-        "confidence": 0.3
-    })
+    mock_response.message.content = json.dumps(
+        {"category": "Finance", "confidence": 0.3}
+    )
     mock_api.chat.return_value = mock_response
 
     entry = {"login_uri": "https://unknown.com", "name": "Unknown"}
@@ -49,12 +47,11 @@ def test_categorize_with_ollama_low_confidence(mock_api):
     assert result == Category.NO_FOLDER.value
 
 
-def test_categorize_with_ollama_invalid_category(mock_api):
+def test_categorize_with_ollama_invalid_category(mock_api: MagicMock) -> None:
     mock_response = MagicMock()
-    mock_response.message.content = json.dumps({
-        "category": "InvalidCategory",
-        "confidence": 0.9
-    })
+    mock_response.message.content = json.dumps(
+        {"category": "InvalidCategory", "confidence": 0.9}
+    )
     mock_api.chat.return_value = mock_response
 
     entry = {"login_uri": "https://example.com", "name": "Example"}
@@ -63,7 +60,7 @@ def test_categorize_with_ollama_invalid_category(mock_api):
     assert result == Category.NO_FOLDER.value
 
 
-def test_categorize_with_ollama_invalid_json(mock_api):
+def test_categorize_with_ollama_invalid_json(mock_api: MagicMock) -> None:
     mock_response = MagicMock()
     mock_response.message.content = "not valid json"
     mock_api.chat.return_value = mock_response
@@ -74,7 +71,7 @@ def test_categorize_with_ollama_invalid_json(mock_api):
     assert result == Category.NO_FOLDER.value
 
 
-def test_categorize_with_ollama_empty_response(mock_api):
+def test_categorize_with_ollama_empty_response(mock_api: MagicMock) -> None:
     mock_response = MagicMock()
     mock_response.message.content = ""
     mock_api.chat.return_value = mock_response
@@ -85,7 +82,7 @@ def test_categorize_with_ollama_empty_response(mock_api):
     assert result == Category.NO_FOLDER.value
 
 
-def test_verify_data():
+def test_verify_data() -> None:
     original = [
         {"name": "Test1", "login_uri": "https://a.com", "folder": ""},
         {"name": "Test2", "login_uri": "https://b.com", "folder": ""},
@@ -98,7 +95,7 @@ def test_verify_data():
     assert verify_data(original, new) is True
 
 
-def test_verify_data_count_mismatch():
+def test_verify_data_count_mismatch() -> None:
     original = [{"name": "Test1", "login_uri": "https://a.com", "folder": ""}]
     new = [
         {"name": "Test1", "login_uri": "https://a.com", "folder": "Finance"},
@@ -108,8 +105,17 @@ def test_verify_data_count_mismatch():
     assert verify_data(original, new) is False
 
 
-def test_verify_data_field_mismatch():
+def test_verify_data_field_mismatch() -> None:
     original = [{"name": "Test1", "login_uri": "https://a.com", "folder": ""}]
     new = [{"name": "Changed", "login_uri": "https://a.com", "folder": "Finance"}]
 
     assert verify_data(original, new) is False
+
+
+def test_categorize_with_ollama_api_exception(mock_api: MagicMock) -> None:
+    mock_api.chat.side_effect = Exception("Connection failed")
+
+    entry = {"login_uri": "https://example.com", "name": "Example"}
+    result = categorize_with_ollama(entry, api=mock_api)
+
+    assert result == Category.NO_FOLDER.value

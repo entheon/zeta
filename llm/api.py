@@ -5,7 +5,6 @@ from ollama import (
     ChatResponse,
     Client,
     GenerateResponse,
-    ListResponse,
     Message,
     Options,
 )
@@ -98,19 +97,3 @@ class OllamaAPI:
             stream=stream,
             options=options or {},
         )
-
-    def list_models(self) -> ListResponse:
-        """List all available models.
-
-        Returns:
-            List of available models and their details.
-        """
-        return self.client.list()
-
-    def pull_model(self, model: str) -> None:
-        """Pull a model from the Ollama library.
-
-        Args:
-            model: Name of the model to pull.
-        """
-        self.client.pull(model)

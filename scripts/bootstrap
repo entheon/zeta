@@ -1,0 +1,25 @@
+#!/bin/bash
+echo "Bootstrapping zeta..."
+
+# Install uv if not found
+if ! command -v uv &> /dev/null; then
+    echo "uv not found, installing..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    source $HOME/.cargo/env
+fi
+
+echo "Syncing dependencies..."
+uv sync --all-extras
+
+echo "Installing pre-commit hooks..."
+uv run pre-commit install
+
+echo "Activating virtual environment..."
+source .venv/bin/activate
+
+echo ""
+echo "Bootstrap complete! Next steps:"
+echo "  inv test      # Run tests"
+echo "  inv lint      # Run linting"
+echo "  inv passwords # Categorize passwords"
+echo ""
