@@ -1,5 +1,3 @@
-"""Shared HTML report generation for categorization results."""
-
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,7 +18,6 @@ def _extract_domain(value: str) -> str:
     """
     if "@" in value:
         return value.split("@")[-1].lower()
-    # Strip protocol and path for URLs
     domain = value.lower()
     for prefix in ("https://", "http://", "www."):
         domain = domain.removeprefix(prefix)

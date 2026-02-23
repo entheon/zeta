@@ -1,14 +1,3 @@
-#!/usr/bin/env python3
-
-"""Generate folder suggestions for a Bitwarden / Vaultwarden unencrypted
-JSON export.
-
-This is the *suggest* step — it reads the export, runs LLM categorization
-on each login item, and writes a suggestions JSON + HTML report.  The
-original export file is never modified.  Use the *apply* step afterwards
-to write a categorized copy with updated folderId assignments.
-"""
-
 import json
 import time
 from pathlib import Path
@@ -26,7 +15,6 @@ if TYPE_CHECKING:
 
 
 def _extract_login_uri(item: dict[str, Any]) -> str:
-    """Extract the first login URI from a Bitwarden item."""
     login = item.get("login") or {}
     uris = login.get("uris") or []
     if uris:
@@ -35,7 +23,6 @@ def _extract_login_uri(item: dict[str, Any]) -> str:
 
 
 def _build_folder_map(data: dict[str, Any]) -> dict[str, str]:
-    """Build a mapping of folder ID -> folder name from Bitwarden JSON."""
     folders = data.get("folders") or []
     return {f["id"]: f["name"] for f in folders}
 
@@ -110,7 +97,6 @@ def suggest(
     folder_map = _build_folder_map(data)
     items = data.get("items") or []
 
-    # Only process type==1 (login items)
     login_items = [item for item in items if item.get("type") == 1]
 
     if not login_items:

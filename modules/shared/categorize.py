@@ -1,5 +1,3 @@
-"""Shared categorization logic for all modules."""
-
 import time
 from typing import Optional
 

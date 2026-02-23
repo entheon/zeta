@@ -1,5 +1,3 @@
-"""Shared models for categorization modules."""
-
 from enum import Enum
 from typing import Optional
 

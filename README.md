@@ -5,15 +5,9 @@ AI-powered categorization tools using local LLMs via [Ollama](https://ollama.ai)
 ## Quick Start
 
 ```bash
-# Clone and bootstrap
 git clone <repo-url> ~/dev/zeta && cd ~/dev/zeta
 ./scripts/bootstrap
-
-# Setup direnv for automatic venv activation
-echo "layout uv" > .envrc && direnv allow
 ```
-
-> **Tip:** For a complete shell setup with direnv + uv integration, see [RyanLiu6/setup](https://github.com/RyanLiu6/setup).
 
 ## Commands
 
@@ -22,7 +16,6 @@ Run `inv help` to see all available commands.
 ### Model Warmup
 
 First run after a while can be slow (~1 min) while the model loads into memory.
-Use warmup to pre-load it:
 
 ```bash
 inv warmup
@@ -45,7 +38,7 @@ inv apply.passwords passwords_suggestions.json
 
 # Options
 inv categorize.passwords export.json --recategorize  # re-process all entries
-inv categorize.passwords export.json --dry-run       # preview without writing
+inv categorize.passwords export.json --dry-run
 inv apply.passwords suggestions.json --min-confidence 0.6
 inv apply.passwords suggestions.json --dry-run
 ```
@@ -60,7 +53,6 @@ inv categorize.emails path/to/emails/
 # Options
 inv categorize.emails emails/ --output results.json
 inv categorize.emails emails/ --dry-run
-inv categorize.emails emails/ --no-report
 ```
 
 ### Development
@@ -68,7 +60,6 @@ inv categorize.emails emails/ --no-report
 ```bash
 inv test              # Run test suite (-v for verbose)
 inv lint              # Run ruff + mypy
-inv mypy              # Run mypy only
 inv format            # Auto-fix + format
 ```
 
@@ -78,19 +69,12 @@ inv format            # Auto-fix + format
 |---|---|---|
 | `ZETA_MODEL` | `qwen3:8b` | Ollama model to use |
 
-```bash
-ZETA_MODEL=llama3 inv categorize.passwords export.json
-```
-
 ## Structure
 
 ```
-llm/                     Ollama API wrapper
+llm/                     Ollama API wrapper and constants
 modules/
-  shared/                Shared Category enum + HTML report generator
-  passwords/
-    categorize.py        Suggest command (Bitwarden JSON → suggestions JSON + HTML report)
-    apply.py             Apply command (suggestions JSON → categorized Bitwarden JSON)
-  emails/
-    categorize.py        Categorize + report generation
+  shared/                Category enum, pydantic models, categorization logic, HTML report
+  passwords/             Bitwarden suggest + apply commands
+  emails/                Email categorization + filter suggestion report
 ```

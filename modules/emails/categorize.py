@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import json
 import time
 from collections import defaultdict
@@ -29,8 +27,9 @@ def categorize_email(
         api: Optional OllamaAPI instance. If None, a new one is created.
 
     Returns:
-        CategorizeResult with category and confidence fields.
-        If categorization fails, returns default "Uncategorized" values.
+        CategorizeResult with category and confidence fields. Returns
+        Uncategorized with confidence=1.0 if both fields are empty;
+        LLM failures fall back to Uncategorized with confidence=0.0.
     """
     data = {
         "subject": email_data.get("subject", ""),
@@ -162,12 +161,6 @@ def _save_results(
     output_path: Path,
     categorized_emails: list[CategorizedEmail],
 ) -> None:
-    """Save current results to output file.
-
-    Args:
-        output_path: Path to write the JSON output to.
-        categorized_emails: List of CategorizedEmail instances to save.
-    """
     suggested_rules = generate_filter_suggestions(categorized_emails)
     output_data = {
         "categorized_emails": [e.model_dump() for e in categorized_emails],
@@ -233,7 +226,6 @@ def categorize(
         click.echo(f"No metadata JSON files found in {emails_dir}", err=True)
         return
 
-    # Load existing results for resume capability
     if no_resume or dry_run:
         categorized_emails: list[CategorizedEmail] = []
         processed_files: set[str] = set()
@@ -303,7 +295,6 @@ def categorize(
                 f"({result.confidence:.2f})"
             )
 
-        # Incremental save
         if not dry_run and processed_this_run % save_interval == 0:
             _save_results(output_path, categorized_emails)
             click.echo(f"  [Saved progress: {len(categorized_emails)} emails]")
@@ -318,7 +309,6 @@ def categorize(
         click.echo(f"\nCompleted in {total_minutes}m {total_seconds}s")
         return
 
-    # Final save
     _save_results(output_path, categorized_emails)
 
     suggested_rules = generate_filter_suggestions(categorized_emails)

@@ -1,14 +1,3 @@
-#!/usr/bin/env python3
-
-"""Apply password categorization suggestions to a Bitwarden / Vaultwarden
-unencrypted JSON export.
-
-Only folder assignments are modified — each item's `folderId` is set to
-point at the suggested category folder.  All other item data (passwords,
-passkeys / fido2Credentials, TOTP, notes, custom fields, etc.) is
-preserved exactly as-is.
-"""
-
 import json
 import uuid
 from pathlib import Path
@@ -109,7 +98,6 @@ def apply(
         )
         return
 
-    # Build suggestion lookup by item_id
     suggestion_map: dict[str, tuple[str, float]] = {}
     for raw in raw_suggestions:
         s = PasswordSuggestion.model_validate(raw)
@@ -122,7 +110,6 @@ def apply(
     items = json.loads(json.dumps(original_items))
     folders = list(bw_data.get("folders") or [])
 
-    # Build folder name -> id mapping
     folder_name_to_id: dict[str, str] = {f["name"]: f["id"] for f in folders}
 
     applied = 0

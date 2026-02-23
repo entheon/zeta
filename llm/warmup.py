@@ -1,5 +1,3 @@
-"""Warm up the Ollama model by sending a simple message."""
-
 import click
 
 from llm.api import OllamaAPI

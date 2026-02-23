@@ -1,5 +1,3 @@
-"""Models for the password categorization module."""
-
 from pydantic import BaseModel
 
 

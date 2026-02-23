@@ -1,5 +1,3 @@
-"""Models for the email categorization module."""
-
 from pydantic import BaseModel
 
 

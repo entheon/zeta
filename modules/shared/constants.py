@@ -1,5 +1,3 @@
-"""Shared constants for categorization modules."""
-
 _CATEGORY_COLORS: dict[str, str] = {
     "Finance": "#4ecdc4",
     "Shopping": "#ff6b6b",
