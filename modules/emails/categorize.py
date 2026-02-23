@@ -144,7 +144,7 @@ def _load_existing_results(
         return [], set()
 
     try:
-        with open(output_path) as f:
+        with open(output_path, encoding="utf-8") as f:
             data = json.load(f)
         existing_emails = [
             CategorizedEmail.model_validate(e)
@@ -166,7 +166,7 @@ def _save_results(
         "categorized_emails": [e.model_dump() for e in categorized_emails],
         "suggested_rules": [r.model_dump() for r in suggested_rules],
     }
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2)
 
 
@@ -264,7 +264,7 @@ def categorize(
             )
             continue
 
-        with open(json_file) as f:
+        with open(json_file, encoding="utf-8") as f:
             email_data = json.load(f)
 
         payload = email_data.get("Payload", {})
