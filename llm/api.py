@@ -61,6 +61,7 @@ class OllamaAPI:
         messages: Sequence[Union[Mapping[str, Any], Message]],
         stream: Literal[False] = False,
         options: Optional[Union[Mapping[str, Any], Options]] = None,
+        keep_alive: Optional[str] = None,
     ) -> ChatResponse: ...
 
     @overload
@@ -70,6 +71,7 @@ class OllamaAPI:
         messages: Sequence[Union[Mapping[str, Any], Message]],
         stream: Literal[True],
         options: Optional[Union[Mapping[str, Any], Options]] = None,
+        keep_alive: Optional[str] = None,
     ) -> Iterator[ChatResponse]: ...
 
     def chat(
@@ -78,6 +80,7 @@ class OllamaAPI:
         messages: Sequence[Union[Mapping[str, Any], Message]],
         stream: Literal[True, False] = False,
         options: Optional[Union[Mapping[str, Any], Options]] = None,
+        keep_alive: Optional[str] = None,
     ) -> Union[ChatResponse, Iterator[ChatResponse]]:
         """Have a chat conversation with the model.
 
@@ -87,6 +90,8 @@ class OllamaAPI:
                 Format: [{"role": "user", "content": "Hello"}, ...].
             stream: Whether to stream the response.
             options: Additional model parameters.
+            keep_alive: Duration to keep model loaded (e.g., "5m", "60m").
+                If None, uses Ollama's default (5m).
 
         Returns:
             Single response or stream of responses based on stream parameter.
@@ -96,4 +101,5 @@ class OllamaAPI:
             messages=messages,
             stream=stream,
             options=options or {},
+            keep_alive=keep_alive,
         )
