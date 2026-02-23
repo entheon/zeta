@@ -4,17 +4,20 @@ import json
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import click
 
-from llm import MODEL, OllamaAPI
-from modules.emails.models import EmailLabel, build_categorization_prompt
+from modules.shared.categorize import categorize_item, log_progress, should_log
+from modules.shared.report import generate_html_report
+
+if TYPE_CHECKING:
+    from llm import OllamaAPI
 
 
 def categorize_email(
     email_data: dict[str, str],
-    api: Optional[OllamaAPI] = None,
+    api: "Optional[OllamaAPI]" = None,
 ) -> dict[str, Any]:
     """Categorize a single email using the LLM.
 
@@ -23,85 +26,22 @@ def categorize_email(
         api: Optional OllamaAPI instance. If None, a new one is created.
 
     Returns:
-        Dictionary with keys: "category", "subcategory", "labels", "confidence".
+        Dictionary with keys: "category", "confidence".
         If categorization fails, returns default "Uncategorized" values.
     """
-    if api is None:
-        api = OllamaAPI()
-
-    subject = email_data.get("subject", "")
-    from_address = email_data.get("from_address", "")
-
-    if not subject and not from_address:
-        return {
-            "category": "Uncategorized",
-            "subcategory": "Unknown",
-            "labels": [],
-            "confidence": 1.0,
-        }
-
-    user_content = json.dumps(
-        {
-            "subject": subject,
-            "from": from_address,
-        }
+    data = {
+        "subject": email_data.get("subject", ""),
+        "from": email_data.get("from_address", ""),
+    }
+    result = categorize_item(
+        data=data,
+        task_description="an email (subject line and sender address)",
+        empty_check_fields=["subject", "from"],
+        api=api,
     )
-
-    try:
-        response = api.chat(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": build_categorization_prompt()},
-                {"role": "user", "content": user_content},
-            ],
-            stream=False,
-            keep_alive="60m",
-        )
-
-        if not response.message.content:
-            click.echo("Empty response from model", err=True)
-            return {
-                "category": "Uncategorized",
-                "subcategory": "Unknown",
-                "labels": [],
-                "confidence": 0.0,
-            }
-
-        result = response.message.content.strip()
-
-        try:
-            categorization = json.loads(result)
-            category = str(categorization.get("category", "Uncategorized"))
-            subcategory = str(categorization.get("subcategory", "Unknown"))
-            labels = categorization.get("labels", [])
-            confidence = float(categorization.get("confidence", 0.0))
-
-            valid_labels = [label for label in labels if label in EmailLabel.values()]
-
-            return {
-                "category": category,
-                "subcategory": subcategory,
-                "labels": valid_labels,
-                "confidence": confidence,
-            }
-
-        except (json.JSONDecodeError, KeyError, ValueError) as e:
-            click.echo(f"Error parsing model response: {result} ({e})", err=True)
-            return {
-                "category": "Uncategorized",
-                "subcategory": "Unknown",
-                "labels": [],
-                "confidence": 0.0,
-            }
-
-    except Exception as e:
-        click.echo(f"Error calling Ollama: {e}", err=True)
-        return {
-            "category": "Uncategorized",
-            "subcategory": "Unknown",
-            "labels": [],
-            "confidence": 0.0,
-        }
+    if not data["subject"] and not data["from"]:
+        result["confidence"] = 1.0
+    return result
 
 
 def extract_domain(email_address: str) -> Optional[str]:
@@ -142,20 +82,18 @@ def generate_filter_suggestions(
 
     for email in categorized_emails:
         category = email["category"]
-        subcategory = email["subcategory"]
-        full_category = f"{category}/{subcategory}"
         confidence = email["confidence"]
         from_address = email["from"]
         subject = email["subject"].lower()
 
         domain = extract_domain(from_address)
         if domain:
-            domain_categories[domain][full_category].append(confidence)
+            domain_categories[domain][category].append(confidence)
 
         words = subject.split()
         for word in words:
             if len(word) > 4:
-                subject_patterns[word][full_category].append(confidence)
+                subject_patterns[word][category].append(confidence)
 
     suggestions = []
 
@@ -255,12 +193,18 @@ def _save_results(
     is_flag=True,
     help="Start fresh, ignoring any existing results",
 )
+@click.option(
+    "--no-report",
+    is_flag=True,
+    help="Skip HTML report generation",
+)
 def categorize(
     emails_dir: str,
     output: Optional[str],
     dry_run: bool,
     save_interval: int,
     no_resume: bool,
+    no_report: bool,
 ) -> None:
     """Categorize emails in a directory using LLM.
 
@@ -305,6 +249,8 @@ def categorize(
 
     click.echo(f"Found {total_emails} emails, {remaining_count} remaining to process")
 
+    from llm import OllamaAPI
+
     api = OllamaAPI()
     start_time = time.time()
     log_interval = max(10, remaining_count // 20)
@@ -340,18 +286,15 @@ def categorize(
                 "subject": processed_data["subject"],
                 "from": processed_data["from_address"],
                 "category": result["category"],
-                "subcategory": result["subcategory"],
-                "labels": result["labels"],
                 "confidence": result["confidence"],
             }
         )
         processed_this_run += 1
 
         if dry_run:
-            labels_str = f" [{', '.join(result['labels'])}]" if result["labels"] else ""
             click.echo(
                 f"{json_file.stem}: {email_data.get('subject', 'N/A')} "
-                f"-> {result['category']}/{result['subcategory']}{labels_str} "
+                f"-> {result['category']} "
                 f"({result['confidence']:.2f})"
             )
 
@@ -360,23 +303,8 @@ def categorize(
             _save_results(output_path, categorized_emails)
             click.echo(f"  [Saved progress: {len(categorized_emails)} emails]")
 
-        if idx % log_interval == 0 or idx == remaining_count:
-            elapsed = time.time() - start_time
-            avg_time = elapsed / idx
-            remaining = (remaining_count - idx) * avg_time
-            percent = (idx / remaining_count) * 100
-
-            eta_minutes = int(remaining // 60)
-            eta_seconds = int(remaining % 60)
-            if eta_minutes > 0:
-                eta_str = f"{eta_minutes}m {eta_seconds}s"
-            else:
-                eta_str = f"{eta_seconds}s"
-
-            click.echo(
-                f"Processing {idx}/{remaining_count} ({percent:.1f}%) - "
-                f"avg {avg_time:.1f}s/email - ETA: ~{eta_str}"
-            )
+        if should_log(idx, remaining_count, log_interval):
+            log_progress(idx, remaining_count, start_time, item_noun="email")
 
     total_time = time.time() - start_time
     total_minutes = int(total_time // 60)
@@ -397,6 +325,20 @@ def categorize(
     )
     click.echo(f"Generated {len(suggested_rules)} filter suggestions")
     click.echo(f"Results written to {output}")
+
+    if not no_report:
+        report_path = output_path.with_suffix(".html")
+        generate_html_report(
+            categorized_emails,
+            report_path,
+            title="Email Categorization Report",
+            item_noun="emails",
+            source_field="from",
+            source_label="Sender Domains",
+            detail_field="subject",
+            detail_label="Example Subjects",
+        )
+        click.echo(f"HTML report written to {report_path}")
 
 
 if __name__ == "__main__":

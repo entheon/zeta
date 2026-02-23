@@ -1,112 +1,183 @@
 #!/usr/bin/env python3
 
 import csv
-from typing import Optional
+import json
+import time
+from pathlib import Path
+from typing import TYPE_CHECKING, Optional
 
 import click
 
-from llm import OllamaAPI, categorize_with_llm
-from modules.passwords.models import Category
+from modules.shared.categorize import categorize_item, log_progress, should_log
+from modules.shared.report import generate_html_report
+
+if TYPE_CHECKING:
+    from llm import OllamaAPI
 
 
 def categorize_with_ollama(
     entry: dict[str, str],
-    api: Optional[OllamaAPI] = None,
-) -> str:
-    if not entry.get("login_uri") and not entry.get("name"):
-        return Category.NO_FOLDER.value
+    api: "Optional[OllamaAPI]" = None,
+) -> dict[str, str | float]:
+    """Categorize a single password entry using the LLM.
 
+    Args:
+        entry: CSV row dict with "login_uri" and "name" keys.
+        api: Optional OllamaAPI instance. Creates new one if None.
+
+    Returns:
+        Dict with "category" (str) and "confidence" (float) keys.
+    """
     data = {
         "url": entry.get("login_uri", ""),
         "name": entry.get("name", ""),
     }
-
-    result = categorize_with_llm(
+    return categorize_item(
         data=data,
-        category_enum=Category,
-        default_category=Category.NO_FOLDER.value,
+        task_description="a password entry (URL and name)",
+        empty_check_fields=["url", "name"],
         api=api,
     )
-
-    category = str(result["category"])
-    confidence = float(result["confidence"])
-
-    if confidence >= 0.4 and category != Category.NO_FOLDER.value:
-        return category
-    return Category.NO_FOLDER.value
-
-
-def verify_data(
-    original_entries: list[dict[str, str]],
-    new_entries: list[dict[str, str]],
-) -> bool:
-    if len(original_entries) != len(new_entries):
-        click.echo(
-            f"Error: Row count mismatch! "
-            f"Original: {len(original_entries)}, "
-            f"New: {len(new_entries)}",
-            err=True,
-        )
-        return False
-
-    # Verify all original fields except 'folder' are preserved
-    for i, (orig, new) in enumerate(zip(original_entries, new_entries, strict=True)):
-        orig_fields = {k: v for k, v in orig.items() if k != "folder"}
-        new_fields = {k: v for k, v in new.items() if k != "folder"}
-
-        if orig_fields != new_fields:
-            click.echo(f"Error: Data mismatch in row {i + 1}!", err=True)
-            click.echo(f"Original: {orig_fields}", err=True)
-            click.echo(f"New: {new_fields}", err=True)
-            return False
-
-    return True
 
 
 @click.command()
 @click.argument("csv_file", type=click.Path(exists=True))
 @click.option(
+    "--output",
+    default=None,
+    help="Output directory for suggestions (default: same dir as CSV)",
+)
+@click.option(
+    "--recategorize",
+    is_flag=True,
+    help="Re-categorize entries that already have a folder assigned",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
-    help="Show categorization without writing output file",
+    help="Show suggestions without writing output files",
 )
-def categorize(csv_file: str, dry_run: bool) -> None:
-    # Process the input CSV
-    with open(csv_file) as f:
+def suggest(
+    csv_file: str,
+    output: Optional[str],
+    recategorize: bool,
+    dry_run: bool,
+) -> None:
+    """Generate categorization suggestions for passwords.
+
+    Reads a CSV, runs LLM categorization, and produces a suggestion
+    report (HTML + JSON) without modifying the original CSV.
+    """
+    from llm import OllamaAPI
+
+    csv_path = Path(csv_file)
+
+    if output is None:
+        output_dir = csv_path.parent
+    else:
+        output_dir = Path(output)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(csv_path) as f:
         reader = csv.DictReader(f)
-        original_entries = list(reader)
+        entries = list(reader)
 
-    # Create a copy for processing
-    entries = [entry.copy() for entry in original_entries]
+    if not entries:
+        click.echo("No entries found in CSV.", err=True)
+        return
 
-    # Create single API instance for all entries
     api = OllamaAPI()
+    suggestions: list[dict[str, str | float]] = []
+    to_process = [e for e in entries if recategorize or not e.get("folder", "")]
+    skipped = len(entries) - len(to_process)
+    total = len(to_process)
 
-    # Process each entry
-    for entry in entries:
-        category = categorize_with_ollama(entry, api=api)
-        entry["folder"] = category
+    if total == 0:
+        if skipped:
+            click.echo(
+                f"All {skipped} entries already categorized "
+                f"(use --recategorize to re-process)"
+            )
+        else:
+            click.echo("No entries to categorize.")
+        return
 
-    # Check for dry run
+    click.echo(f"Found {len(entries)} entries, {total} to categorize")
+
+    start_time = time.time()
+    log_interval = max(5, total // 20)
+
+    for idx, entry in enumerate(to_process, start=1):
+        result = categorize_with_ollama(entry, api=api)
+        category = str(result["category"])
+        confidence = float(result["confidence"])
+
+        suggestion: dict[str, str | float] = {
+            "name": entry.get("name", ""),
+            "login_uri": entry.get("login_uri", ""),
+            "current_folder": entry.get("folder", ""),
+            "suggested_folder": category,
+            "confidence": confidence,
+        }
+        suggestions.append(suggestion)
+
+        if should_log(idx, total, log_interval):
+            log_progress(idx, total, start_time, item_noun="entry")
+
+    total_time = time.time() - start_time
+    total_min = int(total_time // 60)
+    total_sec = int(total_time % 60)
+
+    if skipped:
+        click.echo(
+            f"Skipped {skipped} already-categorized entries "
+            f"(use --recategorize to include them)"
+        )
+
+    click.echo(f"\nCategorized {len(suggestions)} entries in {total_min}m {total_sec}s")
+
     if dry_run:
-        for entry in entries:
-            click.echo(f"{entry['name']} ({entry['login_uri']}) -> {entry['folder']}")
+        for s in suggestions:
+            click.echo(
+                f"{s['name']} ({s['login_uri']}) "
+                f"-> {s['suggested_folder']} "
+                f"({s['confidence']:.2f})"
+            )
+        click.echo(f"\n{len(suggestions)} suggestions generated.")
         return
 
-    # Verify data integrity
-    if not verify_data(original_entries, entries):
-        click.echo("Aborting due to data verification failure.", err=True)
-        return
+    json_path = output_dir / "passwords_suggestions.json"
+    with open(json_path, "w") as f:
+        json.dump(
+            {"csv_file": str(csv_path), "suggestions": suggestions},
+            f,
+            indent=2,
+        )
+    click.echo(f"Suggestions written to {json_path}")
 
-    # Write the categorized entries back to a new CSV
-    output_file = csv_file.replace(".csv", "_categorized.csv")
-    with open(output_file, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=entries[0].keys())
-        writer.writeheader()
-        writer.writerows(entries)
+    report_items = [
+        {
+            "category": s["suggested_folder"],
+            "confidence": s["confidence"],
+            "login_uri": s["login_uri"],
+            "name": s["name"],
+        }
+        for s in suggestions
+    ]
 
-    click.echo(f"Categorized entries written to {output_file}")
+    report_path = output_dir / "passwords_report.html"
+    generate_html_report(
+        report_items,
+        report_path,
+        title="Password Categorization Suggestions",
+        item_noun="passwords",
+        source_field="login_uri",
+        source_label="Domains",
+        detail_field="name",
+        detail_label="Entry Names",
+    )
+    click.echo(f"HTML report written to {report_path}")
 
 
 if __name__ == "__main__":
-    categorize()
+    suggest()

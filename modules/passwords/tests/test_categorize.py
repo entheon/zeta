@@ -1,10 +1,10 @@
-import json
 from unittest.mock import MagicMock
 
 import pytest
 
-from modules.passwords.categorize import categorize_with_ollama, verify_data
-from modules.passwords.models import Category
+from modules.passwords.apply import verify_data
+from modules.passwords.categorize import categorize_with_ollama
+from modules.shared import Category
 
 
 @pytest.fixture
@@ -13,109 +13,74 @@ def mock_api() -> MagicMock:
 
 
 def test_categorize_with_ollama(mock_api: MagicMock) -> None:
-    mock_response = MagicMock()
-    mock_response.message.content = json.dumps(
-        {"category": "Finance", "confidence": 0.9}
-    )
-    mock_api.chat.return_value = mock_response
+    mock_api.categorize.return_value = {
+        "category": "Finance",
+        "confidence": 0.9,
+    }
 
     entry = {"login_uri": "https://bank.com", "name": "My Bank"}
     result = categorize_with_ollama(entry, api=mock_api)
 
-    assert result == "Finance"
-    mock_api.chat.assert_called_once()
+    assert result == {"category": "Finance", "confidence": 0.9}
+    mock_api.categorize.assert_called_once()
 
 
 def test_categorize_with_ollama_empty_entry(mock_api: MagicMock) -> None:
     entry = {"login_uri": "", "name": ""}
     result = categorize_with_ollama(entry, api=mock_api)
 
-    assert result == Category.NO_FOLDER.value
-    mock_api.chat.assert_not_called()
+    assert result["category"] == Category.UNCATEGORIZED.value
+    assert result["confidence"] == 0.0
+    mock_api.categorize.assert_not_called()
 
 
-def test_categorize_with_ollama_low_confidence(mock_api: MagicMock) -> None:
-    mock_response = MagicMock()
-    mock_response.message.content = json.dumps(
-        {"category": "Finance", "confidence": 0.3}
-    )
-    mock_api.chat.return_value = mock_response
-
-    entry = {"login_uri": "https://unknown.com", "name": "Unknown"}
-    result = categorize_with_ollama(entry, api=mock_api)
-
-    assert result == Category.NO_FOLDER.value
-
-
-def test_categorize_with_ollama_invalid_category(mock_api: MagicMock) -> None:
-    mock_response = MagicMock()
-    mock_response.message.content = json.dumps(
-        {"category": "InvalidCategory", "confidence": 0.9}
-    )
-    mock_api.chat.return_value = mock_response
+def test_categorize_with_ollama_uncategorized(mock_api: MagicMock) -> None:
+    mock_api.categorize.return_value = {
+        "category": Category.UNCATEGORIZED.value,
+        "confidence": 0.0,
+    }
 
     entry = {"login_uri": "https://example.com", "name": "Example"}
     result = categorize_with_ollama(entry, api=mock_api)
 
-    assert result == Category.NO_FOLDER.value
+    assert result["category"] == Category.UNCATEGORIZED.value
 
 
-def test_categorize_with_ollama_invalid_json(mock_api: MagicMock) -> None:
-    mock_response = MagicMock()
-    mock_response.message.content = "not valid json"
-    mock_api.chat.return_value = mock_response
-
-    entry = {"login_uri": "https://example.com", "name": "Example"}
-    result = categorize_with_ollama(entry, api=mock_api)
-
-    assert result == Category.NO_FOLDER.value
-
-
-def test_categorize_with_ollama_empty_response(mock_api: MagicMock) -> None:
-    mock_response = MagicMock()
-    mock_response.message.content = ""
-    mock_api.chat.return_value = mock_response
-
-    entry = {"login_uri": "https://example.com", "name": "Example"}
-    result = categorize_with_ollama(entry, api=mock_api)
-
-    assert result == Category.NO_FOLDER.value
-
-
-def test_verify_data() -> None:
-    original = [
-        {"name": "Test1", "login_uri": "https://a.com", "folder": ""},
-        {"name": "Test2", "login_uri": "https://b.com", "folder": ""},
-    ]
-    new = [
-        {"name": "Test1", "login_uri": "https://a.com", "folder": "Finance"},
-        {"name": "Test2", "login_uri": "https://b.com", "folder": "Shopping"},
-    ]
-
-    assert verify_data(original, new) is True
-
-
-def test_verify_data_count_mismatch() -> None:
-    original = [{"name": "Test1", "login_uri": "https://a.com", "folder": ""}]
-    new = [
-        {"name": "Test1", "login_uri": "https://a.com", "folder": "Finance"},
-        {"name": "Test2", "login_uri": "https://b.com", "folder": "Shopping"},
-    ]
-
-    assert verify_data(original, new) is False
-
-
-def test_verify_data_field_mismatch() -> None:
-    original = [{"name": "Test1", "login_uri": "https://a.com", "folder": ""}]
-    new = [{"name": "Changed", "login_uri": "https://a.com", "folder": "Finance"}]
-
-    assert verify_data(original, new) is False
-
-
-def test_categorize_with_ollama_api_exception(mock_api: MagicMock) -> None:
-    mock_api.chat.side_effect = Exception("Connection failed")
-
-    entry = {"login_uri": "https://example.com", "name": "Example"}
-    result = categorize_with_ollama(entry, api=mock_api)
-
-    assert result == Category.NO_FOLDER.value
+@pytest.mark.parametrize(
+    ("original", "new", "expected"),
+    [
+        pytest.param(
+            [
+                {"name": "A", "login_uri": "https://a.com", "folder": ""},
+                {"name": "B", "login_uri": "https://b.com", "folder": ""},
+            ],
+            [
+                {"name": "A", "login_uri": "https://a.com", "folder": "Finance"},
+                {"name": "B", "login_uri": "https://b.com", "folder": "Shopping"},
+            ],
+            True,
+            id="valid",
+        ),
+        pytest.param(
+            [{"name": "A", "login_uri": "https://a.com", "folder": ""}],
+            [
+                {"name": "A", "login_uri": "https://a.com", "folder": "Finance"},
+                {"name": "B", "login_uri": "https://b.com", "folder": "Shopping"},
+            ],
+            False,
+            id="count_mismatch",
+        ),
+        pytest.param(
+            [{"name": "A", "login_uri": "https://a.com", "folder": ""}],
+            [{"name": "Changed", "login_uri": "https://a.com", "folder": "Finance"}],
+            False,
+            id="field_mismatch",
+        ),
+    ],
+)
+def test_verify_data(
+    original: list[dict[str, str]],
+    new: list[dict[str, str]],
+    expected: bool,
+) -> None:
+    assert verify_data(original, new) is expected

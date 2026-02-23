@@ -1,3 +1,4 @@
+import json
 from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
@@ -29,6 +30,23 @@ def test_init_custom_host(mock_client: MagicMock) -> None:
 
     mock_client.assert_called_once_with(host="http://custom:8080")
     assert api.client == mock_client.return_value
+
+
+def test_model_default(api: OllamaAPI) -> None:
+    assert api.model == "qwen3:8b"
+
+
+@patch.dict("os.environ", {"ZETA_MODEL": "llama3"})
+def test_model_from_envar(mock_client: MagicMock) -> None:
+    import importlib
+
+    import llm.api
+
+    importlib.reload(llm.api)
+    api = llm.api.OllamaAPI()
+    assert api.model == "llama3"
+
+    importlib.reload(llm.api)
 
 
 def test_generate(api: OllamaAPI, mock_client: MagicMock) -> None:
@@ -83,6 +101,7 @@ def test_chat(api: OllamaAPI, mock_client: MagicMock) -> None:
         messages=messages,
         stream=False,
         options={},
+        keep_alive=None,
     )
     assert response == mock_response
 
@@ -99,5 +118,83 @@ def test_chat_streaming(api: OllamaAPI, mock_client: MagicMock) -> None:
         messages=messages,
         stream=True,
         options={},
+        keep_alive=None,
     )
     assert list(response) == mock_chunks
+
+
+def test_categorize_success(api: OllamaAPI, mock_client: MagicMock) -> None:
+    mock_response = MagicMock()
+    mock_response.message.content = json.dumps(
+        {"category": "Finance", "confidence": 0.9}
+    )
+    mock_client.return_value.chat.return_value = mock_response
+
+    result = api.categorize(
+        data={"url": "https://bank.com"},
+        system_prompt="Test prompt",
+        valid_categories=["Finance", "Shopping"],
+        default_category="Uncategorized",
+    )
+
+    assert result == {"category": "Finance", "confidence": 0.9}
+
+
+def test_categorize_invalid_category(api: OllamaAPI, mock_client: MagicMock) -> None:
+    mock_response = MagicMock()
+    mock_response.message.content = json.dumps(
+        {"category": "InvalidCategory", "confidence": 0.9}
+    )
+    mock_client.return_value.chat.return_value = mock_response
+
+    result = api.categorize(
+        data={"url": "https://example.com"},
+        system_prompt="Test prompt",
+        valid_categories=["Finance", "Shopping"],
+        default_category="Uncategorized",
+    )
+
+    assert result == {"category": "Uncategorized", "confidence": 0.0}
+
+
+def test_categorize_invalid_json(api: OllamaAPI, mock_client: MagicMock) -> None:
+    mock_response = MagicMock()
+    mock_response.message.content = "not valid json"
+    mock_client.return_value.chat.return_value = mock_response
+
+    result = api.categorize(
+        data={"url": "https://example.com"},
+        system_prompt="Test prompt",
+        valid_categories=["Finance"],
+        default_category="Uncategorized",
+    )
+
+    assert result == {"category": "Uncategorized", "confidence": 0.0}
+
+
+def test_categorize_empty_response(api: OllamaAPI, mock_client: MagicMock) -> None:
+    mock_response = MagicMock()
+    mock_response.message.content = ""
+    mock_client.return_value.chat.return_value = mock_response
+
+    result = api.categorize(
+        data={"url": "https://example.com"},
+        system_prompt="Test prompt",
+        valid_categories=["Finance"],
+        default_category="Uncategorized",
+    )
+
+    assert result == {"category": "Uncategorized", "confidence": 0.0}
+
+
+def test_categorize_api_exception(api: OllamaAPI, mock_client: MagicMock) -> None:
+    mock_client.return_value.chat.side_effect = Exception("Connection failed")
+
+    result = api.categorize(
+        data={"url": "https://example.com"},
+        system_prompt="Test prompt",
+        valid_categories=["Finance"],
+        default_category="Uncategorized",
+    )
+
+    assert result == {"category": "Uncategorized", "confidence": 0.0}

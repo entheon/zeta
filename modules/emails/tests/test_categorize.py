@@ -1,4 +1,3 @@
-import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -8,24 +7,21 @@ from modules.emails.categorize import (
     extract_domain,
     generate_filter_suggestions,
 )
+from modules.shared import Category
 
 
 @pytest.fixture
 def mock_api() -> MagicMock:
-    return MagicMock()
+    api = MagicMock()
+    api.model = "qwen3:8b"
+    return api
 
 
 def test_categorize_email(mock_api: MagicMock) -> None:
-    mock_response = MagicMock()
-    mock_response.message.content = json.dumps(
-        {
-            "category": "Finance",
-            "subcategory": "Banking",
-            "labels": ["RECEIPT"],
-            "confidence": 0.9,
-        }
-    )
-    mock_api.chat.return_value = mock_response
+    mock_api.categorize.return_value = {
+        "category": "Finance",
+        "confidence": 0.9,
+    }
 
     email_data = {
         "subject": "Your bank statement is ready",
@@ -34,34 +30,24 @@ def test_categorize_email(mock_api: MagicMock) -> None:
     result = categorize_email(email_data, api=mock_api)
 
     assert result["category"] == "Finance"
-    assert result["subcategory"] == "Banking"
-    assert result["labels"] == ["RECEIPT"]
     assert result["confidence"] == 0.9
-    mock_api.chat.assert_called_once()
+    mock_api.categorize.assert_called_once()
 
 
 def test_categorize_email_empty_data(mock_api: MagicMock) -> None:
     email_data = {"subject": "", "from_address": ""}
     result = categorize_email(email_data, api=mock_api)
 
-    assert result["category"] == "Uncategorized"
-    assert result["subcategory"] == "Unknown"
-    assert result["labels"] == []
+    assert result["category"] == Category.UNCATEGORIZED.value
     assert result["confidence"] == 1.0
-    mock_api.chat.assert_not_called()
+    mock_api.categorize.assert_not_called()
 
 
-def test_categorize_email_with_invalid_labels(mock_api: MagicMock) -> None:
-    mock_response = MagicMock()
-    mock_response.message.content = json.dumps(
-        {
-            "category": "Finance",
-            "subcategory": "Bills",
-            "labels": ["RECEIPT", "INVALID_LABEL"],
-            "confidence": 0.9,
-        }
-    )
-    mock_api.chat.return_value = mock_response
+def test_categorize_email_uncategorized(mock_api: MagicMock) -> None:
+    mock_api.categorize.return_value = {
+        "category": Category.UNCATEGORIZED.value,
+        "confidence": 0.0,
+    }
 
     email_data = {
         "subject": "Test subject",
@@ -69,58 +55,7 @@ def test_categorize_email_with_invalid_labels(mock_api: MagicMock) -> None:
     }
     result = categorize_email(email_data, api=mock_api)
 
-    assert result["category"] == "Finance"
-    assert result["subcategory"] == "Bills"
-    assert result["labels"] == ["RECEIPT"]
-    assert result["confidence"] == 0.9
-
-
-def test_categorize_email_invalid_json(mock_api: MagicMock) -> None:
-    mock_response = MagicMock()
-    mock_response.message.content = "not valid json"
-    mock_api.chat.return_value = mock_response
-
-    email_data = {
-        "subject": "Test subject",
-        "from_address": "test@example.com",
-    }
-    result = categorize_email(email_data, api=mock_api)
-
-    assert result["category"] == "Uncategorized"
-    assert result["subcategory"] == "Unknown"
-    assert result["labels"] == []
-    assert result["confidence"] == 0.0
-
-
-def test_categorize_email_empty_response(mock_api: MagicMock) -> None:
-    mock_response = MagicMock()
-    mock_response.message.content = ""
-    mock_api.chat.return_value = mock_response
-
-    email_data = {
-        "subject": "Test subject",
-        "from_address": "test@example.com",
-    }
-    result = categorize_email(email_data, api=mock_api)
-
-    assert result["category"] == "Uncategorized"
-    assert result["subcategory"] == "Unknown"
-    assert result["labels"] == []
-    assert result["confidence"] == 0.0
-
-
-def test_categorize_email_api_exception(mock_api: MagicMock) -> None:
-    mock_api.chat.side_effect = Exception("Connection failed")
-
-    email_data = {
-        "subject": "Test subject",
-        "from_address": "test@example.com",
-    }
-    result = categorize_email(email_data, api=mock_api)
-
-    assert result["category"] == "Uncategorized"
-    assert result["subcategory"] == "Unknown"
-    assert result["labels"] == []
+    assert result["category"] == Category.UNCATEGORIZED.value
     assert result["confidence"] == 0.0
 
 
@@ -136,21 +71,18 @@ def test_generate_filter_suggestions() -> None:
             "subject": "Your order has shipped",
             "from": "orders@amazon.com",
             "category": "Shopping",
-            "subcategory": "Orders",
             "confidence": 0.9,
         },
         {
             "subject": "Order confirmation",
             "from": "noreply@amazon.com",
             "category": "Shopping",
-            "subcategory": "Orders",
             "confidence": 0.85,
         },
         {
             "subject": "Daily newsletter",
             "from": "hello@newsletter.com",
-            "category": "Newsletters",
-            "subcategory": "Daily",
+            "category": "Entertainment",
             "confidence": 0.95,
         },
     ]
@@ -167,7 +99,7 @@ def test_generate_filter_suggestions() -> None:
         None,
     )
     assert amazon_suggestion is not None
-    assert amazon_suggestion["category"] == "Shopping/Orders"
+    assert amazon_suggestion["category"] == "Shopping"
     assert amazon_suggestion["count"] == 2
 
 
@@ -181,8 +113,7 @@ def test_generate_filter_suggestions_insufficient_data() -> None:
         {
             "subject": "Single email",
             "from": "single@example.com",
-            "category": "Updates",
-            "subcategory": "Account",
+            "category": "Work",
             "confidence": 0.8,
         }
     ]
