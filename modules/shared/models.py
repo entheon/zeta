@@ -1,6 +1,39 @@
 """Shared models for categorization modules."""
 
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel
+
+
+class CategorizeResult(BaseModel):
+    """Result of a categorization operation.
+
+    Attributes:
+        category: The assigned category string.
+        confidence: Confidence score between 0.0 and 1.0.
+    """
+
+    category: str
+    confidence: float
+
+
+class FilterSuggestion(BaseModel):
+    """A suggested email filter rule derived from categorization patterns.
+
+    Attributes:
+        category: The category this filter rule belongs to.
+        count: Number of matching emails that informed this suggestion.
+        confidence: Average confidence score across matched emails.
+        from_domain: Sender domain to match on, if applicable.
+        subject_pattern: Subject keyword to match on, if applicable.
+    """
+
+    category: str
+    count: int
+    confidence: float
+    from_domain: Optional[str] = None
+    subject_pattern: Optional[str] = None
 
 
 class Category(str, Enum):

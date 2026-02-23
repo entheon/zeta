@@ -16,11 +16,13 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import click
 
-from modules.shared.categorize import categorize_item, log_progress, should_log
+from modules.passwords.models import PasswordSuggestion
+from modules.shared.categorize import categorize_item, log_progress
+from modules.shared.models import CategorizeResult
 from modules.shared.report import generate_html_report
 
 if TYPE_CHECKING:
-    from llm import OllamaAPI
+    from llm.api import OllamaAPI
 
 
 def _extract_login_uri(item: dict[str, Any]) -> str:
@@ -41,7 +43,7 @@ def _build_folder_map(data: dict[str, Any]) -> dict[str, str]:
 def categorize_with_ollama(
     entry: dict[str, str],
     api: "Optional[OllamaAPI]" = None,
-) -> dict[str, str | float]:
+) -> CategorizeResult:
     """Categorize a single password entry using the LLM.
 
     Args:
@@ -49,7 +51,7 @@ def categorize_with_ollama(
         api: Optional OllamaAPI instance. Creates new one if None.
 
     Returns:
-        Dict with "category" (str) and "confidence" (float) keys.
+        CategorizeResult with category and confidence fields.
     """
     data = {
         "url": entry.get("login_uri", ""),
@@ -92,7 +94,7 @@ def suggest(
     produces a suggestion report (HTML + JSON) without modifying
     the original file.
     """
-    from llm import OllamaAPI
+    from llm.api import OllamaAPI
 
     json_path = Path(json_file)
 
@@ -116,7 +118,7 @@ def suggest(
         return
 
     api = OllamaAPI()
-    suggestions: list[dict[str, Any]] = []
+    suggestions: list[PasswordSuggestion] = []
 
     to_process = [
         item for item in login_items if recategorize or not item.get("folderId")
@@ -137,7 +139,6 @@ def suggest(
     click.echo(f"Found {len(login_items)} login items, {total} to categorize")
 
     start_time = time.time()
-    log_interval = max(5, total // 20)
 
     for idx, item in enumerate(to_process, start=1):
         login_uri = _extract_login_uri(item)
@@ -146,21 +147,19 @@ def suggest(
 
         entry = {"login_uri": login_uri, "name": name}
         result = categorize_with_ollama(entry, api=api)
-        category = str(result["category"])
-        confidence = float(result["confidence"])
 
-        suggestion: dict[str, Any] = {
-            "item_id": item["id"],
-            "name": name,
-            "login_uri": login_uri,
-            "current_folder": current_folder,
-            "suggested_folder": category,
-            "confidence": confidence,
-        }
-        suggestions.append(suggestion)
+        suggestions.append(
+            PasswordSuggestion(
+                item_id=item["id"],
+                name=name,
+                login_uri=login_uri,
+                current_folder=current_folder,
+                suggested_folder=result.category,
+                confidence=result.confidence,
+            )
+        )
 
-        if should_log(idx, total, log_interval):
-            log_progress(idx, total, start_time, item_noun="entry")
+        log_progress(idx, total, start_time, item_noun="entry")
 
     total_time = time.time() - start_time
     total_min = int(total_time // 60)
@@ -177,9 +176,7 @@ def suggest(
     if dry_run:
         for s in suggestions:
             click.echo(
-                f"{s['name']} ({s['login_uri']}) "
-                f"-> {s['suggested_folder']} "
-                f"({s['confidence']:.2f})"
+                f"{s.name} ({s.login_uri}) -> {s.suggested_folder} ({s.confidence:.2f})"
             )
         click.echo(f"\n{len(suggestions)} suggestions generated.")
         return
@@ -187,7 +184,10 @@ def suggest(
     json_out_path = output_dir / "passwords_suggestions.json"
     with open(json_out_path, "w", encoding="utf-8") as f:
         json.dump(
-            {"json_file": str(json_path), "suggestions": suggestions},
+            {
+                "json_file": str(json_path),
+                "suggestions": [s.model_dump() for s in suggestions],
+            },
             f,
             indent=2,
         )
@@ -195,10 +195,10 @@ def suggest(
 
     report_items = [
         {
-            "category": s["suggested_folder"],
-            "confidence": s["confidence"],
-            "login_uri": s["login_uri"],
-            "name": s["name"],
+            "category": s.suggested_folder,
+            "confidence": s.confidence,
+            "login_uri": s.login_uri,
+            "name": s.name,
         }
         for s in suggestions
     ]

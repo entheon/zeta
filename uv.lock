@@ -710,6 +710,7 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "ollama" },
+    { name = "pydantic" },
 ]
 
 [package.dev-dependencies]
@@ -731,6 +732,7 @@ dev = [
 requires-dist = [
     { name = "click" },
     { name = "ollama" },
+    { name = "pydantic" },
 ]
 
 [package.metadata.requires-dev]

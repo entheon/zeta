@@ -4,7 +4,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from llm import OllamaAPI
+from llm.api import OllamaAPI
+from llm.constants import MODEL
+from modules.shared.models import CategorizeResult
 
 
 @pytest.fixture
@@ -33,7 +35,7 @@ def test_init_custom_host(mock_client: MagicMock) -> None:
 
 
 def test_model_default(api: OllamaAPI) -> None:
-    assert api.model == "qwen3:8b"
+    assert api.model == MODEL
 
 
 @patch.dict("os.environ", {"ZETA_MODEL": "llama3"})
@@ -41,11 +43,14 @@ def test_model_from_envar(mock_client: MagicMock) -> None:
     import importlib
 
     import llm.api
+    import llm.constants
 
+    importlib.reload(llm.constants)
     importlib.reload(llm.api)
     api = llm.api.OllamaAPI()
     assert api.model == "llama3"
 
+    importlib.reload(llm.constants)
     importlib.reload(llm.api)
 
 
@@ -137,7 +142,7 @@ def test_categorize_success(api: OllamaAPI, mock_client: MagicMock) -> None:
         default_category="Uncategorized",
     )
 
-    assert result == {"category": "Finance", "confidence": 0.9}
+    assert result == CategorizeResult(category="Finance", confidence=0.9)
 
 
 def test_categorize_invalid_category(api: OllamaAPI, mock_client: MagicMock) -> None:
@@ -154,7 +159,7 @@ def test_categorize_invalid_category(api: OllamaAPI, mock_client: MagicMock) -> 
         default_category="Uncategorized",
     )
 
-    assert result == {"category": "Uncategorized", "confidence": 0.0}
+    assert result == CategorizeResult(category="Uncategorized", confidence=0.0)
 
 
 def test_categorize_invalid_json(api: OllamaAPI, mock_client: MagicMock) -> None:
@@ -169,7 +174,7 @@ def test_categorize_invalid_json(api: OllamaAPI, mock_client: MagicMock) -> None
         default_category="Uncategorized",
     )
 
-    assert result == {"category": "Uncategorized", "confidence": 0.0}
+    assert result == CategorizeResult(category="Uncategorized", confidence=0.0)
 
 
 def test_categorize_empty_response(api: OllamaAPI, mock_client: MagicMock) -> None:
@@ -184,7 +189,7 @@ def test_categorize_empty_response(api: OllamaAPI, mock_client: MagicMock) -> No
         default_category="Uncategorized",
     )
 
-    assert result == {"category": "Uncategorized", "confidence": 0.0}
+    assert result == CategorizeResult(category="Uncategorized", confidence=0.0)
 
 
 def test_categorize_api_exception(api: OllamaAPI, mock_client: MagicMock) -> None:
@@ -197,4 +202,4 @@ def test_categorize_api_exception(api: OllamaAPI, mock_client: MagicMock) -> Non
         default_category="Uncategorized",
     )
 
-    assert result == {"category": "Uncategorized", "confidence": 0.0}
+    assert result == CategorizeResult(category="Uncategorized", confidence=0.0)

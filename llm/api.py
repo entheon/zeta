@@ -1,5 +1,4 @@
 import json
-import os
 from collections.abc import Iterator, Mapping, Sequence
 from typing import Any, Literal, Optional, Union, overload
 
@@ -12,7 +11,8 @@ from ollama import (
     Options,
 )
 
-MODEL = os.environ.get("ZETA_MODEL", "qwen3:8b")
+from llm.constants import MODEL
+from modules.shared.models import CategorizeResult
 
 
 class OllamaAPI:
@@ -116,7 +116,7 @@ class OllamaAPI:
         system_prompt: str,
         valid_categories: list[str],
         default_category: str,
-    ) -> dict[str, Any]:
+    ) -> CategorizeResult:
         """Categorize data using the LLM.
 
         Sends a chat request with the system prompt and data, parses the JSON
@@ -131,7 +131,7 @@ class OllamaAPI:
             default_category: Category to return on error or invalid response.
 
         Returns:
-            Dict with "category" and "confidence" keys.
+            CategorizeResult with category and confidence fields.
         """
         user_content = json.dumps(data)
 
@@ -148,10 +148,7 @@ class OllamaAPI:
 
             if not response.message.content:
                 click.echo("Empty response from model", err=True)
-                return {
-                    "category": default_category,
-                    "confidence": 0.0,
-                }
+                return CategorizeResult(category=default_category, confidence=0.0)
 
             result = response.message.content.strip()
 
@@ -162,26 +159,14 @@ class OllamaAPI:
 
                 if category not in valid_categories:
                     click.echo(f"Invalid category from model: {category}", err=True)
-                    return {
-                        "category": default_category,
-                        "confidence": 0.0,
-                    }
+                    return CategorizeResult(category=default_category, confidence=0.0)
 
-                return {
-                    "category": category,
-                    "confidence": confidence,
-                }
+                return CategorizeResult(category=category, confidence=confidence)
 
             except (json.JSONDecodeError, KeyError) as e:
                 click.echo(f"Error parsing model response: {result} ({e})", err=True)
-                return {
-                    "category": default_category,
-                    "confidence": 0.0,
-                }
+                return CategorizeResult(category=default_category, confidence=0.0)
 
         except Exception as e:
             click.echo(f"Error calling Ollama: {e}", err=True)
-            return {
-                "category": default_category,
-                "confidence": 0.0,
-            }
+            return CategorizeResult(category=default_category, confidence=0.0)

@@ -5,8 +5,8 @@ from typing import Optional
 
 import click
 
-from llm import OllamaAPI
-from modules.shared import Category
+from llm.api import OllamaAPI
+from modules.shared.models import CategorizeResult, Category
 
 
 def categorize_item(
@@ -14,7 +14,7 @@ def categorize_item(
     task_description: str,
     empty_check_fields: list[str],
     api: Optional[OllamaAPI] = None,
-) -> dict[str, str | float]:
+) -> CategorizeResult:
     """Categorize a single item using the LLM.
 
     Generic categorization wrapper that handles empty-input checks,
@@ -32,13 +32,13 @@ def categorize_item(
         api: Optional OllamaAPI instance. Creates a new one if None.
 
     Returns:
-        Dict with "category" (str) and "confidence" (float) keys.
+        CategorizeResult with category and confidence fields.
     """
     if all(not data.get(field) for field in empty_check_fields):
-        return {
-            "category": Category.UNCATEGORIZED.value,
-            "confidence": 0.0,
-        }
+        return CategorizeResult(
+            category=Category.UNCATEGORIZED.value,
+            confidence=0.0,
+        )
 
     if api is None:
         api = OllamaAPI()
@@ -82,19 +82,3 @@ def log_progress(
         f"Processing {idx}/{total} ({pct:.1f}%) "
         f"- avg {avg_time:.1f}s/{item_noun} - ETA: ~{eta_str}"
     )
-
-
-def should_log(idx: int, total: int, log_interval: int) -> bool:
-    """Determine whether to log progress at this index.
-
-    Args:
-        idx: Current 1-based index.
-        total: Total item count.
-        log_interval: Interval between progress logs (currently ignored).
-
-    Returns:
-        True if progress should be logged at this index.
-    """
-    # Local LLMs are slow (~20s/item). We log every single item so
-    # the user gets a constant heartbeat and knows it hasn't hung.
-    return True

@@ -4,21 +4,24 @@ import json
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 import click
 
-from modules.shared.categorize import categorize_item, log_progress, should_log
+from modules.emails.constants import _DOMAIN_MIN_MATCHES, _SUBJECT_MIN_MATCHES
+from modules.emails.models import CategorizedEmail
+from modules.shared.categorize import categorize_item, log_progress
+from modules.shared.models import CategorizeResult, Category, FilterSuggestion
 from modules.shared.report import generate_html_report
 
 if TYPE_CHECKING:
-    from llm import OllamaAPI
+    from llm.api import OllamaAPI
 
 
 def categorize_email(
     email_data: dict[str, str],
     api: "Optional[OllamaAPI]" = None,
-) -> dict[str, Any]:
+) -> CategorizeResult:
     """Categorize a single email using the LLM.
 
     Args:
@@ -26,22 +29,21 @@ def categorize_email(
         api: Optional OllamaAPI instance. If None, a new one is created.
 
     Returns:
-        Dictionary with keys: "category", "confidence".
+        CategorizeResult with category and confidence fields.
         If categorization fails, returns default "Uncategorized" values.
     """
     data = {
         "subject": email_data.get("subject", ""),
         "from": email_data.get("from_address", ""),
     }
-    result = categorize_item(
+    if not data["subject"] and not data["from"]:
+        return CategorizeResult(category=Category.UNCATEGORIZED.value, confidence=1.0)
+    return categorize_item(
         data=data,
         task_description="an email (subject line and sender address)",
         empty_check_fields=["subject", "from"],
         api=api,
     )
-    if not data["subject"] and not data["from"]:
-        result["confidence"] = 1.0
-    return result
 
 
 def extract_domain(email_address: str) -> Optional[str]:
@@ -59,19 +61,18 @@ def extract_domain(email_address: str) -> Optional[str]:
 
 
 def generate_filter_suggestions(
-    categorized_emails: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+    categorized_emails: list[CategorizedEmail],
+) -> list[FilterSuggestion]:
     """Generate potential email filter rules based on categorization patterns.
 
     Analyzes processed emails to find consistent patterns by sender domain
     or subject keywords that map to specific categories.
 
     Args:
-        categorized_emails: List of processed email dictionaries.
+        categorized_emails: List of CategorizedEmail instances.
 
     Returns:
-        List of suggestion dictionaries with keys: "category", "confidence",
-        "count", and either "from_domain" or "subject_pattern".
+        List of FilterSuggestion objects sorted by count and confidence.
     """
     domain_categories: dict[str, dict[str, list[float]]] = defaultdict(
         lambda: defaultdict(list)
@@ -81,10 +82,10 @@ def generate_filter_suggestions(
     )
 
     for email in categorized_emails:
-        category = email["category"]
-        confidence = email["confidence"]
-        from_address = email["from"]
-        subject = email["subject"].lower()
+        category = email.category
+        confidence = email.confidence
+        from_address = email.from_address
+        subject = email.subject.lower()
 
         domain = extract_domain(from_address)
         if domain:
@@ -95,39 +96,41 @@ def generate_filter_suggestions(
             if len(word) > 4:
                 subject_patterns[word][category].append(confidence)
 
-    suggestions = []
+    suggestions: list[FilterSuggestion] = []
 
     for domain, categories in domain_categories.items():
         for category, confidences in categories.items():
-            if len(confidences) >= 2:
+            if len(confidences) >= _DOMAIN_MIN_MATCHES:
                 avg_confidence = sum(confidences) / len(confidences)
                 suggestions.append(
-                    {
-                        "category": category,
-                        "from_domain": domain,
-                        "count": len(confidences),
-                        "confidence": round(avg_confidence, 2),
-                    }
+                    FilterSuggestion(
+                        category=category,
+                        from_domain=domain,
+                        count=len(confidences),
+                        confidence=round(avg_confidence, 2),
+                    )
                 )
 
     for pattern, categories in subject_patterns.items():
         for category, confidences in categories.items():
-            if len(confidences) >= 3:
+            if len(confidences) >= _SUBJECT_MIN_MATCHES:
                 avg_confidence = sum(confidences) / len(confidences)
                 suggestions.append(
-                    {
-                        "category": category,
-                        "subject_pattern": pattern,
-                        "count": len(confidences),
-                        "confidence": round(avg_confidence, 2),
-                    }
+                    FilterSuggestion(
+                        category=category,
+                        subject_pattern=pattern,
+                        count=len(confidences),
+                        confidence=round(avg_confidence, 2),
+                    )
                 )
 
-    suggestions.sort(key=lambda x: (x["count"], x["confidence"]), reverse=True)
+    suggestions.sort(key=lambda x: (x.count, x.confidence), reverse=True)
     return suggestions
 
 
-def _load_existing_results(output_path: Path) -> tuple[list[dict[str, Any]], set[str]]:
+def _load_existing_results(
+    output_path: Path,
+) -> tuple[list[CategorizedEmail], set[str]]:
     """Load existing categorization results from output file.
 
     Args:
@@ -135,7 +138,7 @@ def _load_existing_results(output_path: Path) -> tuple[list[dict[str, Any]], set
 
     Returns:
         Tuple containing:
-        - List of already categorized email dictionaries.
+        - List of already categorized CategorizedEmail instances.
         - Set of file stems (IDs) that have been processed.
     """
     if not output_path.exists():
@@ -144,8 +147,11 @@ def _load_existing_results(output_path: Path) -> tuple[list[dict[str, Any]], set
     try:
         with open(output_path) as f:
             data = json.load(f)
-        existing_emails = data.get("categorized_emails", [])
-        processed_files = {email["file"] for email in existing_emails}
+        existing_emails = [
+            CategorizedEmail.model_validate(e)
+            for e in data.get("categorized_emails", [])
+        ]
+        processed_files = {email.file for email in existing_emails}
         return existing_emails, processed_files
     except (json.JSONDecodeError, KeyError) as e:
         click.echo(f"Warning: Could not load existing results: {e}", err=True)
@@ -154,18 +160,18 @@ def _load_existing_results(output_path: Path) -> tuple[list[dict[str, Any]], set
 
 def _save_results(
     output_path: Path,
-    categorized_emails: list[dict[str, Any]],
+    categorized_emails: list[CategorizedEmail],
 ) -> None:
     """Save current results to output file.
 
     Args:
         output_path: Path to write the JSON output to.
-        categorized_emails: List of email categorization results to save.
+        categorized_emails: List of CategorizedEmail instances to save.
     """
     suggested_rules = generate_filter_suggestions(categorized_emails)
     output_data = {
-        "categorized_emails": categorized_emails,
-        "suggested_rules": suggested_rules,
+        "categorized_emails": [e.model_dump() for e in categorized_emails],
+        "suggested_rules": [r.model_dump() for r in suggested_rules],
     }
     with open(output_path, "w") as f:
         json.dump(output_data, f, indent=2)
@@ -229,7 +235,7 @@ def categorize(
 
     # Load existing results for resume capability
     if no_resume or dry_run:
-        categorized_emails: list[dict[str, Any]] = []
+        categorized_emails: list[CategorizedEmail] = []
         processed_files: set[str] = set()
     else:
         categorized_emails, processed_files = _load_existing_results(output_path)
@@ -249,11 +255,10 @@ def categorize(
 
     click.echo(f"Found {total_emails} emails, {remaining_count} remaining to process")
 
-    from llm import OllamaAPI
+    from llm.api import OllamaAPI
 
     api = OllamaAPI()
     start_time = time.time()
-    log_interval = max(10, remaining_count // 20)
     processed_this_run = 0
 
     for idx, json_file in enumerate(remaining_files, start=1):
@@ -281,21 +286,21 @@ def categorize(
         result = categorize_email(processed_data, api=api)
 
         categorized_emails.append(
-            {
-                "file": json_file.stem,
-                "subject": processed_data["subject"],
-                "from": processed_data["from_address"],
-                "category": result["category"],
-                "confidence": result["confidence"],
-            }
+            CategorizedEmail(
+                file=json_file.stem,
+                subject=processed_data["subject"],
+                from_address=processed_data["from_address"],
+                category=result.category,
+                confidence=result.confidence,
+            )
         )
         processed_this_run += 1
 
         if dry_run:
             click.echo(
                 f"{json_file.stem}: {email_data.get('subject', 'N/A')} "
-                f"-> {result['category']} "
-                f"({result['confidence']:.2f})"
+                f"-> {result.category} "
+                f"({result.confidence:.2f})"
             )
 
         # Incremental save
@@ -303,8 +308,7 @@ def categorize(
             _save_results(output_path, categorized_emails)
             click.echo(f"  [Saved progress: {len(categorized_emails)} emails]")
 
-        if should_log(idx, remaining_count, log_interval):
-            log_progress(idx, remaining_count, start_time, item_noun="email")
+        log_progress(idx, remaining_count, start_time, item_noun="email")
 
     total_time = time.time() - start_time
     total_minutes = int(total_time // 60)
@@ -329,14 +333,15 @@ def categorize(
     if not no_report:
         report_path = output_path.with_suffix(".html")
         generate_html_report(
-            categorized_emails,
+            [e.model_dump() for e in categorized_emails],
             report_path,
             title="Email Categorization Report",
             item_noun="emails",
-            source_field="from",
+            source_field="from_address",
             source_label="Sender Domains",
             detail_field="subject",
             detail_label="Example Subjects",
+            suggested_rules=suggested_rules,
         )
         click.echo(f"HTML report written to {report_path}")
 

@@ -2,7 +2,7 @@
 
 import click
 
-from llm import OllamaAPI
+from llm.api import OllamaAPI
 
 
 @click.command()

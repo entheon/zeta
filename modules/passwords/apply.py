@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 import click
 
-from modules.passwords.categorize import _extract_login_uri
+from modules.passwords.models import PasswordSuggestion
 
 
 def verify_data(
@@ -99,7 +99,7 @@ def apply(
     with open(suggestions_file, encoding="utf-8") as f:
         suggestion_data = json.load(f)
 
-    suggestions = suggestion_data["suggestions"]
+    raw_suggestions = suggestion_data["suggestions"]
     original_json = json_file or suggestion_data.get("json_file", "")
 
     if not original_json:
@@ -111,11 +111,9 @@ def apply(
 
     # Build suggestion lookup by item_id
     suggestion_map: dict[str, tuple[str, float]] = {}
-    for s in suggestions:
-        suggestion_map[s["item_id"]] = (
-            str(s["suggested_folder"]),
-            float(s["confidence"]),
-        )
+    for raw in raw_suggestions:
+        s = PasswordSuggestion.model_validate(raw)
+        suggestion_map[s.item_id] = (s.suggested_folder, s.confidence)
 
     with open(original_json, encoding="utf-8") as f:
         bw_data = json.load(f)
@@ -150,7 +148,9 @@ def apply(
                 item["folderId"] = folder_name_to_id[folder_name]
                 applied += 1
                 if dry_run:
-                    login_uri = _extract_login_uri(item)
+                    _login = item.get("login") or {}
+                    _uris = _login.get("uris") or []
+                    login_uri = str(_uris[0].get("uri", "")) if _uris else ""
                     click.echo(
                         f"{item['name']} ({login_uri}) "
                         f"-> {folder_name} ({confidence:.2f})"

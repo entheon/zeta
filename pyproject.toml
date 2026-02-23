@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "click",
     "ollama",
+    "pydantic",
 ]
 authors = [
     {name = "Ryan Liu", email = "ryanliu6@pm.me"},

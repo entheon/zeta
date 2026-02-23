@@ -3,22 +3,10 @@
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
-# Color palette for categories — visually distinct, dark-theme friendly
-_CATEGORY_COLORS: dict[str, str] = {
-    "Finance": "#4ecdc4",
-    "Shopping": "#ff6b6b",
-    "Social": "#a78bfa",
-    "Entertainment": "#fbbf24",
-    "Work": "#60a5fa",
-    "Education": "#34d399",
-    "Travel": "#f472b6",
-    "Health": "#fb923c",
-    "Uncategorized": "#94a3b8",
-}
-
-_DEFAULT_COLOR = "#94a3b8"
+from modules.shared.constants import _CATEGORY_COLORS, _DEFAULT_COLOR
+from modules.shared.models import FilterSuggestion
 
 
 def _get_color(category: str) -> str:
@@ -49,8 +37,9 @@ def _build_category_stats(
 
     Args:
         items: List of categorized item dicts (must have "category"
-            and "confidence" keys).
-        source_field: Key for the source identifier (e.g. "from",
+            and "confidence" keys plus whatever source_field and
+            detail_field point to).
+        source_field: Key for the source identifier (e.g. "from_address",
             "login_uri").
         detail_field: Key for the detail text (e.g. "subject", "name").
 
@@ -81,8 +70,58 @@ def _build_category_stats(
     return stats
 
 
+def _escape_html(text: str) -> str:
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def _render_rules_section(
+    rules: list[FilterSuggestion],
+    category: str,
+) -> str:
+    """Render suggested filter rules for a given category.
+
+    Args:
+        rules: Full list of FilterSuggestion objects (all categories).
+        category: The category to filter and render rules for.
+
+    Returns:
+        HTML string for the rules section, or empty string if no rules
+        match the given category.
+    """
+    category_rules = [r for r in rules if r.category == category]
+    if not category_rules:
+        return ""
+
+    items = []
+    for rule in category_rules:
+        count = rule.count
+        confidence = rule.confidence
+        if rule.from_domain is not None:
+            text = (
+                f'sender domain is <span class="rule-pattern">'
+                f"{_escape_html(rule.from_domain)}</span> "
+                f"({count} matches, {confidence:.0%} confidence)"
+            )
+        else:
+            text = (
+                f'subject contains <span class="rule-pattern">'
+                f"&quot;{_escape_html(rule.subject_pattern or '')}&quot;</span> "
+                f"({count} matches, {confidence:.0%} confidence)"
+            )
+        items.append(f'<li class="rule-item">{text}</li>')
+
+    rules_html = "\n".join(items)
+    return f"""
+        <div class="section-label">Suggested Rules</div>
+        <ul class="rule-list">{rules_html}</ul>"""
+
+
 def _render_distribution_bar(stats: dict[str, dict[str, Any]], total: int) -> str:
-    """Render a horizontal stacked bar showing category distribution."""
     segments = []
     for cat, data in sorted(stats.items(), key=lambda x: x[1]["count"], reverse=True):
         pct = (data["count"] / total) * 100 if total else 0
@@ -104,8 +143,8 @@ def _render_category_section(
     item_noun: str,
     source_label: str,
     detail_label: str,
+    suggested_rules: Optional[list[FilterSuggestion]] = None,
 ) -> str:
-    """Render a single category card."""
     pct = (data["count"] / total) * 100 if total else 0
     color = _get_color(category)
     avg_conf = (
@@ -129,6 +168,10 @@ def _render_category_section(
 
     detail_items = "\n".join(f"<li>{_escape_html(d)}</li>" for d in data["details"])
 
+    rules_html = (
+        _render_rules_section(suggested_rules, category) if suggested_rules else ""
+    )
+
     return f"""
     <details class="category-card" open>
       <summary class="category-header">
@@ -142,20 +185,11 @@ def _render_category_section(
       </summary>
       <div class="category-body">
         <div class="section-label">{_escape_html(source_label)}</div>
-        <div class="domain-list">{source_items}</div>
+        <div class="domain-list">{source_items}</div>{rules_html}
         <div class="section-label">{_escape_html(detail_label)}</div>
         <ul class="subject-list">{detail_items}</ul>
       </div>
     </details>"""
-
-
-def _escape_html(text: str) -> str:
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
 
 
 _CSS = """\
@@ -293,6 +327,23 @@ details[open] > .category-header::before {
   border-bottom: 1px solid #1e293b;
 }
 .subject-list li:last-child { border-bottom: none; }
+.rule-list {
+  list-style: none;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+.rule-item {
+  padding: 0.2rem 0;
+  border-bottom: 1px solid #1e293b;
+}
+.rule-item:last-child { border-bottom: none; }
+.rule-pattern {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  background: #334155;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.8rem;
+}
 footer {
   text-align: center;
   color: #475569;
@@ -310,10 +361,11 @@ def generate_html_report(
     *,
     title: str = "Categorization Report",
     item_noun: str = "items",
-    source_field: str = "from",
+    source_field: str = "from_address",
     source_label: str = "Domains",
     detail_field: str = "subject",
     detail_label: str = "Examples",
+    suggested_rules: Optional[list[FilterSuggestion]] = None,
 ) -> None:
     """Generate a self-contained HTML report from categorized items.
 
@@ -327,6 +379,9 @@ def generate_html_report(
         source_label: Display label for the source section.
         detail_field: Key in item dicts for detail text.
         detail_label: Display label for the detail section.
+        suggested_rules: Optional list of FilterSuggestion objects from
+            generate_filter_suggestions(). If provided, each category card
+            will include a "Suggested Rules" section.
     """
     total = len(items)
     stats = _build_category_stats(items, source_field, detail_field)
@@ -346,7 +401,7 @@ def generate_html_report(
 
     cards_html = "".join(
         _render_category_section(
-            cat, data, total, item_noun, source_label, detail_label
+            cat, data, total, item_noun, source_label, detail_label, suggested_rules
         )
         for cat, data in sorted_cats
     )
