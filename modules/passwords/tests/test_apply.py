@@ -1,12 +1,13 @@
 import json
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
 
 def _make_bitwarden_json(
     items: list[dict],
-    folders: list[dict] | None = None,
+    folders: Optional[list[dict]] = None,
 ) -> dict:
     """Helper to build a minimal Bitwarden JSON export structure."""
     return {
@@ -20,8 +21,8 @@ def _make_item(
     item_id: str,
     name: str,
     uri: str,
-    folder_id: str | None = None,
-    fido2: list | None = None,
+    folder_id: Optional[str] = None,
+    fido2: Optional[list] = None,
 ) -> dict:
     """Helper to build a minimal Bitwarden login item."""
     item: dict = {
@@ -44,8 +45,7 @@ def _make_item(
         },
         "collectionIds": None,
     }
-    if folder_id is not None:
-        item["folderId"] = folder_id
+    item["folderId"] = folder_id
     return item
 
 

@@ -16,6 +16,8 @@ from typing import Any, Optional
 
 import click
 
+from modules.passwords.categorize import _extract_login_uri
+
 
 def verify_data(
     original_items: list[dict[str, Any]],
@@ -119,7 +121,7 @@ def apply(
         bw_data = json.load(f)
 
     original_items = bw_data.get("items") or []
-    items = [item.copy() for item in original_items]
+    items = json.loads(json.dumps(original_items))
     folders = list(bw_data.get("folders") or [])
 
     # Build folder name -> id mapping
@@ -148,11 +150,7 @@ def apply(
                 item["folderId"] = folder_name_to_id[folder_name]
                 applied += 1
                 if dry_run:
-                    login_uri = ""
-                    login = item.get("login") or {}
-                    uris = login.get("uris") or []
-                    if uris:
-                        login_uri = uris[0].get("uri", "")
+                    login_uri = _extract_login_uri(item)
                     click.echo(
                         f"{item['name']} ({login_uri}) "
                         f"-> {folder_name} ({confidence:.2f})"
