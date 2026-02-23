@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -51,36 +52,36 @@ def test_categorize_with_ollama_uncategorized(mock_api: MagicMock) -> None:
     [
         pytest.param(
             [
-                {"name": "A", "login_uri": "https://a.com", "folder": ""},
-                {"name": "B", "login_uri": "https://b.com", "folder": ""},
+                {"name": "A", "login": {}, "folderId": None},
+                {"name": "B", "login": {}, "folderId": None},
             ],
             [
-                {"name": "A", "login_uri": "https://a.com", "folder": "Finance"},
-                {"name": "B", "login_uri": "https://b.com", "folder": "Shopping"},
+                {"name": "A", "login": {}, "folderId": "folder-1"},
+                {"name": "B", "login": {}, "folderId": "folder-2"},
             ],
             True,
             id="valid",
         ),
         pytest.param(
-            [{"name": "A", "login_uri": "https://a.com", "folder": ""}],
+            [{"name": "A", "login": {}, "folderId": None}],
             [
-                {"name": "A", "login_uri": "https://a.com", "folder": "Finance"},
-                {"name": "B", "login_uri": "https://b.com", "folder": "Shopping"},
+                {"name": "A", "login": {}, "folderId": "folder-1"},
+                {"name": "B", "login": {}, "folderId": "folder-2"},
             ],
             False,
             id="count_mismatch",
         ),
         pytest.param(
-            [{"name": "A", "login_uri": "https://a.com", "folder": ""}],
-            [{"name": "Changed", "login_uri": "https://a.com", "folder": "Finance"}],
+            [{"name": "A", "login": {}, "folderId": None}],
+            [{"name": "Changed", "login": {}, "folderId": "folder-1"}],
             False,
             id="field_mismatch",
         ),
     ],
 )
 def test_verify_data(
-    original: list[dict[str, str]],
-    new: list[dict[str, str]],
+    original: list[dict[str, Any]],
+    new: list[dict[str, Any]],
     expected: bool,
 ) -> None:
     assert verify_data(original, new) is expected

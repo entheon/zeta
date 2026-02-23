@@ -32,16 +32,20 @@ inv warmup
 
 Two-step flow: **suggest** then **apply**.
 
+Reads a [Bitwarden / Vaultwarden unencrypted JSON export](https://bitwarden.com/help/export-your-data/)
+and categorizes login entries into folders using a local LLM.
+All fields — including passkeys (fido2Credentials), TOTP, notes, etc. — are preserved.
+
 ```bash
 # 1. Generate suggestions (HTML report + JSON)
-inv categorize.passwords path/to/passwords.csv
+inv categorize.passwords path/to/export.json
 
 # 2. Review passwords_report.html, then apply
 inv apply.passwords passwords_suggestions.json
 
 # Options
-inv categorize.passwords passwords.csv --recategorize  # re-process all entries
-inv categorize.passwords passwords.csv --dry-run       # preview without writing
+inv categorize.passwords export.json --recategorize  # re-process all entries
+inv categorize.passwords export.json --dry-run       # preview without writing
 inv apply.passwords suggestions.json --min-confidence 0.6
 inv apply.passwords suggestions.json --dry-run
 ```
@@ -75,7 +79,7 @@ inv format            # Auto-fix + format
 | `ZETA_MODEL` | `qwen3:8b` | Ollama model to use |
 
 ```bash
-ZETA_MODEL=llama3 inv categorize.passwords passwords.csv
+ZETA_MODEL=llama3 inv categorize.passwords export.json
 ```
 
 ## Structure
@@ -85,8 +89,8 @@ llm/                     Ollama API wrapper
 modules/
   shared/                Shared Category enum + HTML report generator
   passwords/
-    categorize.py        Suggest command (LLM → JSON + HTML report)
-    apply.py             Apply command (JSON → categorized CSV)
+    categorize.py        Suggest command (Bitwarden JSON → suggestions JSON + HTML report)
+    apply.py             Apply command (suggestions JSON → categorized Bitwarden JSON)
   emails/
     categorize.py        Categorize + report generation
 ```

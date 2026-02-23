@@ -385,4 +385,4 @@ def generate_html_report(
 </body>
 </html>"""
 
-    output_path.write_text(html)
+    output_path.write_text(html, encoding="utf-8")

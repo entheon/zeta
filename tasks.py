@@ -2,8 +2,8 @@ from invoke import Collection, task
 
 
 @task
-def categorize_passwords(c, csv_file, output=None, recategorize=False, dry_run=False):
-    args = [csv_file]
+def categorize_passwords(c, json_file, output=None, recategorize=False, dry_run=False):
+    args = [json_file]
     if output:
         args.append(f"--output {output}")
     if recategorize:
@@ -30,11 +30,11 @@ categorize_ns.add_task(categorize_emails, name="emails")
 
 @task
 def apply_passwords(
-    c, suggestions_file, csv_file=None, min_confidence=0.4, dry_run=False
+    c, suggestions_file, json_file=None, min_confidence=0.4, dry_run=False
 ):
     args = [suggestions_file]
-    if csv_file:
-        args.append(f"--csv-file {csv_file}")
+    if json_file:
+        args.append(f"--json-file {json_file}")
     if min_confidence != 0.4:
         args.append(f"--min-confidence {min_confidence}")
     if dry_run:
@@ -78,7 +78,7 @@ def warmup(c):
 def help(c):
     commands = [
         ("warmup", "Load model into memory"),
-        ("categorize.passwords <csv>", "Generate password suggestions"),
+        ("categorize.passwords <json>", "Generate password suggestions"),
         ("categorize.emails <dir>", "Categorize emails + report"),
         ("apply.passwords <json>", "Apply password suggestions"),
         ("test", "Run test suite"),
