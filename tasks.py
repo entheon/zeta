@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import Optional, cast
 
-from invoke import Collection, Context, task
+from invoke import Collection, Context, Task, task
 
 
 @task
@@ -11,6 +11,15 @@ def categorize_passwords(
     recategorize: bool = False,
     dry_run: bool = False,
 ) -> None:
+    """Categorize passwords using LLM and generate suggestions.
+
+    Args:
+        c: Invoke context.
+        json_file: Path to Bitwarden JSON export.
+        output: Output directory for report files.
+        recategorize: Re-run LLM even for already-categorized entries.
+        dry_run: Preview without writing output files.
+    """
     args = [json_file]
     if output:
         args.append(f"--output {output}")
@@ -28,6 +37,14 @@ def categorize_emails(
     output: Optional[str] = None,
     dry_run: bool = False,
 ) -> None:
+    """Categorize emails using LLM and generate a filter suggestion report.
+
+    Args:
+        c: Invoke context.
+        input_dir: Directory containing .metadata.json email files.
+        output: Path for the output JSON results file.
+        dry_run: Preview without writing output files.
+    """
     args = [input_dir]
     if output:
         args.append(f"--output {output}")
@@ -37,8 +54,8 @@ def categorize_emails(
 
 
 categorize_ns = Collection("categorize")
-categorize_ns.add_task(categorize_passwords, name="passwords")  # type: ignore[arg-type]
-categorize_ns.add_task(categorize_emails, name="emails")  # type: ignore[arg-type]
+categorize_ns.add_task(cast(Task, categorize_passwords), name="passwords")
+categorize_ns.add_task(cast(Task, categorize_emails), name="emails")
 
 
 @task
@@ -49,6 +66,15 @@ def apply_passwords(
     min_confidence: float = 0.4,
     dry_run: bool = False,
 ) -> None:
+    """Apply password folder suggestions to a Bitwarden JSON export.
+
+    Args:
+        c: Invoke context.
+        suggestions_file: Path to suggestions JSON from categorize.passwords.
+        json_file: Override the Bitwarden JSON path from the suggestions file.
+        min_confidence: Minimum confidence threshold for applying suggestions.
+        dry_run: Preview changes without writing output.
+    """
     args = [suggestions_file]
     if json_file:
         args.append(f"--json-file {json_file}")
@@ -60,39 +86,70 @@ def apply_passwords(
 
 
 apply_ns = Collection("apply")
-apply_ns.add_task(apply_passwords, name="passwords")  # type: ignore[arg-type]
+apply_ns.add_task(cast(Task, apply_passwords), name="passwords")
 
 
 @task
 def test(c: Context, verbose: bool = False) -> None:
+    """Run the test suite with coverage.
+
+    Args:
+        c: Invoke context.
+        verbose: Enable verbose pytest output.
+    """
     v = "-v" if verbose else ""
-    c.run(f"uv run pytest {v}")
+    c.run(f"uv run pytest --cov {v}")
 
 
 @task
 def lint(c: Context) -> None:
+    """Run ruff check and mypy across the entire project.
+
+    Args:
+        c: Invoke context.
+    """
     c.run("uv run ruff check .")
-    c.run("uv run mypy llm/ modules/")
+    c.run("uv run mypy .")
 
 
 @task(name="mypy")
 def mypy_check(c: Context) -> None:
-    c.run("uv run mypy llm/ modules/")
+    """Run mypy type checking across the entire project.
+
+    Args:
+        c: Invoke context.
+    """
+    c.run("uv run mypy .")
 
 
 @task(name="format")
 def format_code(c: Context) -> None:
+    """Auto-fix lint issues and format all code.
+
+    Args:
+        c: Invoke context.
+    """
     c.run("uv run ruff check --fix .")
     c.run("uv run ruff format .")
 
 
 @task
 def warmup(c: Context) -> None:
+    """Load the LLM model into memory.
+
+    Args:
+        c: Invoke context.
+    """
     c.run("uv run python -m llm.warmup")
 
 
 @task
 def help(c: Context) -> None:
+    """Print available commands and their descriptions.
+
+    Args:
+        c: Invoke context.
+    """
     commands = [
         ("warmup", "Load model into memory"),
         ("categorize.passwords <json>", "Generate password suggestions"),
@@ -113,9 +170,9 @@ def help(c: Context) -> None:
 ns = Collection()
 ns.add_collection(categorize_ns)
 ns.add_collection(apply_ns)
-ns.add_task(warmup)  # type: ignore[arg-type]
-ns.add_task(test)  # type: ignore[arg-type]
-ns.add_task(lint)  # type: ignore[arg-type]
+ns.add_task(cast(Task, warmup))
+ns.add_task(cast(Task, test))
+ns.add_task(cast(Task, lint))
 ns.add_task(mypy_check)
 ns.add_task(format_code)
-ns.add_task(help)  # type: ignore[arg-type]
+ns.add_task(cast(Task, help))

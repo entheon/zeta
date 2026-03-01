@@ -1,9 +1,13 @@
+import json
+from pathlib import Path
 from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
 
 from modules.emails.categorize import (
+    _load_existing_results,
+    _save_results,
     categorize_email,
     extract_domain,
     generate_filter_suggestions,
@@ -132,3 +136,69 @@ def test_generate_filter_suggestions_insufficient_data() -> None:
 
     suggestions = generate_filter_suggestions(categorized_emails)
     assert suggestions == []
+
+
+def test_generate_filter_suggestions_subject_pattern() -> None:
+    categorized_emails = [
+        CategorizedEmail(
+            file=f"email{i}",
+            subject="invoice ready download",
+            from_address=f"billing{i}@different.com",
+            category="Finance",
+            confidence=0.9,
+        )
+        for i in range(3)
+    ]
+    suggestions = generate_filter_suggestions(categorized_emails)
+    subject_suggestions = [s for s in suggestions if s.subject_pattern is not None]
+    assert len(subject_suggestions) > 0
+
+
+def test_load_existing_results_missing_file(tmp_path: Path) -> None:
+    emails, processed = _load_existing_results(tmp_path / "nonexistent.json")
+    assert emails == []
+    assert processed == set()
+
+
+def test_load_existing_results(tmp_path: Path) -> None:
+    data = {
+        "categorized_emails": [
+            {
+                "file": "email1",
+                "subject": "Test",
+                "from_address": "a@b.com",
+                "category": "Work",
+                "confidence": 0.9,
+            }
+        ]
+    }
+    output = tmp_path / "results.json"
+    output.write_text(json.dumps(data), encoding="utf-8")
+    emails, processed = _load_existing_results(output)
+    assert len(emails) == 1
+    assert "email1" in processed
+
+
+def test_load_existing_results_corrupt_file(tmp_path: Path) -> None:
+    output = tmp_path / "bad.json"
+    output.write_text("not valid json", encoding="utf-8")
+    emails, processed = _load_existing_results(output)
+    assert emails == []
+    assert processed == set()
+
+
+def test_save_results(tmp_path: Path) -> None:
+    emails = [
+        CategorizedEmail(
+            file="email1",
+            subject="Your invoice",
+            from_address="billing@shop.com",
+            category="Finance",
+            confidence=0.9,
+        )
+    ]
+    output = tmp_path / "out.json"
+    _save_results(output, emails)
+    assert output.exists()
+    data = json.loads(output.read_text())
+    assert len(data["categorized_emails"]) == 1

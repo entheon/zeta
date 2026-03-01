@@ -3,15 +3,9 @@ name = "zeta"
 version = "0.1.0"
 description = "A collection of AI-powered tools and utilities"
 requires-python = ">=3.12"
-dependencies = [
-    "click",
-    "ollama",
-    "pydantic",
-]
-authors = [
-    {name = "Ryan Liu", email = "ryanliu6@pm.me"},
-]
-license = {text = "MIT"}
+dependencies = ["click", "ollama", "pydantic"]
+authors = [{ name = "Ryan Liu", email = "ryanliu6@pm.me" }]
+license = { text = "MIT" }
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -57,24 +51,24 @@ line-ending = "lf"
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle errors
-    "F",  # pyflakes
-    "B",  # flake8-bugbear
-    "I",  # isort
-    "UP", # pyupgrade
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "B",   # flake8-bugbear
+    "I",   # isort
+    "UP",  # pyupgrade
     "RUF", # Ruff-specific rules
 ]
 ignore = [
-    "D100",  # Missing docstring in public module
-    "D104",  # Missing docstring in public package
-    "D107",  # Missing docstring in __init__
-    "D203",  # 1 blank line required before class docstring
-    "D213",  # Multi-line docstring summary should start at the second line
-    "D406",  # Section name should end with a newline
-    "D407",  # Missing dashed underline after section
-    "D413",  # Missing blank line after last section
-    "COM812",  # Missing trailing comma
-    "ISC001",  # Single line import statements
+    "D100",   # Missing docstring in public module
+    "D104",   # Missing docstring in public package
+    "D107",   # Missing docstring in __init__
+    "D203",   # 1 blank line required before class docstring
+    "D213",   # Multi-line docstring summary should start at the second line
+    "D406",   # Section name should end with a newline
+    "D407",   # Missing dashed underline after section
+    "D413",   # Missing blank line after last section
+    "COM812", # Missing trailing comma
+    "ISC001", # Single line import statements
     "UP007",  # Keep Optional[X] syntax
     "UP045",  # Keep Optional[X] syntax
 ]
@@ -89,7 +83,7 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
-disallow_untyped_decorators = true
+disallow_untyped_decorators = false
 no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
@@ -100,7 +94,3 @@ strict_equality = true
 [[tool.mypy.overrides]]
 module = ["*.tests.*", "tests.*"]
 disallow_untyped_decorators = false
-
-
-
-

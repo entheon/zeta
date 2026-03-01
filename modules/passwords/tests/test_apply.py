@@ -199,6 +199,25 @@ def test_apply_dry_run(suggestions_file: Path, sample_bitwarden_json: Path) -> N
     assert not output_json.exists()
 
 
+def test_apply_verify_data_failure(
+    suggestions_file: Path, sample_bitwarden_json: Path
+) -> None:
+    from unittest.mock import patch
+
+    from click.testing import CliRunner
+
+    from modules.passwords.apply import apply
+
+    with patch("modules.passwords.apply.verify_data", return_value=False):
+        runner = CliRunner()
+        result = runner.invoke(apply, [str(suggestions_file)])
+
+    assert result.exit_code == 0
+    assert "Aborting due to data verification failure." in result.output
+    output_json = sample_bitwarden_json.with_name("passwords_categorized.json")
+    assert not output_json.exists()
+
+
 def test_apply_no_json_in_suggestions(tmp_path: Path) -> None:
     """Verify error when suggestions file has no json_file and none provided."""
     from click.testing import CliRunner

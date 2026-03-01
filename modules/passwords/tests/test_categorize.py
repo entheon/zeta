@@ -4,7 +4,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from modules.passwords.apply import verify_data
-from modules.passwords.categorize import categorize_with_ollama
+from modules.passwords.categorize import (
+    _build_folder_map,
+    _extract_login_uri,
+    categorize_with_ollama,
+)
 from modules.shared.models import CategorizeResult, Category
 
 
@@ -86,3 +90,26 @@ def test_verify_data(
     expected: bool,
 ) -> None:
     assert verify_data(original, new) is expected
+
+
+def test_extract_login_uri() -> None:
+    item = {"login": {"uris": [{"uri": "https://bank.com"}]}}
+    assert _extract_login_uri(item) == "https://bank.com"
+
+
+def test_extract_login_uri_no_login() -> None:
+    assert _extract_login_uri({}) == ""
+
+
+def test_extract_login_uri_empty_uris() -> None:
+    item: dict[str, Any] = {"login": {"uris": []}}
+    assert _extract_login_uri(item) == ""
+
+
+def test_build_folder_map() -> None:
+    data = {"folders": [{"id": "1", "name": "Work"}, {"id": "2", "name": "Personal"}]}
+    assert _build_folder_map(data) == {"1": "Work", "2": "Personal"}
+
+
+def test_build_folder_map_empty() -> None:
+    assert _build_folder_map({}) == {}
