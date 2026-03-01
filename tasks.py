@@ -1,8 +1,16 @@
-from invoke import Collection, task
+from typing import Optional
+
+from invoke import Collection, Context, task
 
 
 @task
-def categorize_passwords(c, json_file, output=None, recategorize=False, dry_run=False):
+def categorize_passwords(
+    c: Context,
+    json_file: str,
+    output: Optional[str] = None,
+    recategorize: bool = False,
+    dry_run: bool = False,
+) -> None:
     args = [json_file]
     if output:
         args.append(f"--output {output}")
@@ -14,7 +22,12 @@ def categorize_passwords(c, json_file, output=None, recategorize=False, dry_run=
 
 
 @task
-def categorize_emails(c, input_dir, output=None, dry_run=False):
+def categorize_emails(
+    c: Context,
+    input_dir: str,
+    output: Optional[str] = None,
+    dry_run: bool = False,
+) -> None:
     args = [input_dir]
     if output:
         args.append(f"--output {output}")
@@ -24,14 +37,18 @@ def categorize_emails(c, input_dir, output=None, dry_run=False):
 
 
 categorize_ns = Collection("categorize")
-categorize_ns.add_task(categorize_passwords, name="passwords")
-categorize_ns.add_task(categorize_emails, name="emails")
+categorize_ns.add_task(categorize_passwords, name="passwords")  # type: ignore[arg-type]
+categorize_ns.add_task(categorize_emails, name="emails")  # type: ignore[arg-type]
 
 
 @task
 def apply_passwords(
-    c, suggestions_file, json_file=None, min_confidence=0.4, dry_run=False
-):
+    c: Context,
+    suggestions_file: str,
+    json_file: Optional[str] = None,
+    min_confidence: float = 0.4,
+    dry_run: bool = False,
+) -> None:
     args = [suggestions_file]
     if json_file:
         args.append(f"--json-file {json_file}")
@@ -43,39 +60,39 @@ def apply_passwords(
 
 
 apply_ns = Collection("apply")
-apply_ns.add_task(apply_passwords, name="passwords")
+apply_ns.add_task(apply_passwords, name="passwords")  # type: ignore[arg-type]
 
 
 @task
-def test(c, verbose=False):
+def test(c: Context, verbose: bool = False) -> None:
     v = "-v" if verbose else ""
     c.run(f"uv run pytest {v}")
 
 
 @task
-def lint(c):
+def lint(c: Context) -> None:
     c.run("uv run ruff check .")
     c.run("uv run mypy llm/ modules/")
 
 
 @task(name="mypy")
-def mypy_check(c):
+def mypy_check(c: Context) -> None:
     c.run("uv run mypy llm/ modules/")
 
 
 @task(name="format")
-def format_code(c):
+def format_code(c: Context) -> None:
     c.run("uv run ruff check --fix .")
     c.run("uv run ruff format .")
 
 
 @task
-def warmup(c):
+def warmup(c: Context) -> None:
     c.run("uv run python -m llm.warmup")
 
 
 @task
-def help(c):
+def help(c: Context) -> None:
     commands = [
         ("warmup", "Load model into memory"),
         ("categorize.passwords <json>", "Generate password suggestions"),
@@ -96,9 +113,9 @@ def help(c):
 ns = Collection()
 ns.add_collection(categorize_ns)
 ns.add_collection(apply_ns)
-ns.add_task(warmup)
-ns.add_task(test)
-ns.add_task(lint)
+ns.add_task(warmup)  # type: ignore[arg-type]
+ns.add_task(test)  # type: ignore[arg-type]
+ns.add_task(lint)  # type: ignore[arg-type]
 ns.add_task(mypy_check)
 ns.add_task(format_code)
-ns.add_task(help)
+ns.add_task(help)  # type: ignore[arg-type]

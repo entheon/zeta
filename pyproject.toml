@@ -97,8 +97,6 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 
-exclude = ["tasks\\.py"]
-
 [[tool.mypy.overrides]]
 module = ["*.tests.*", "tests.*"]
 disallow_untyped_decorators = false
