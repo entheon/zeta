@@ -1,13 +1,18 @@
-from typing import Any, Iterator, Literal, Mapping, Optional, Sequence, Union
+import json
+from collections.abc import Iterator, Mapping, Sequence
+from typing import Any, Literal, Optional, Union, overload
 
+import click
 from ollama import (
     ChatResponse,
     Client,
     GenerateResponse,
-    ListResponse,
     Message,
     Options,
 )
+
+from llm.constants import MODEL
+from modules.shared.models import CategorizeResult
 
 
 class OllamaAPI:
@@ -21,9 +26,10 @@ class OllamaAPI:
         """Initialize the Ollama API client.
 
         Args:
-            host (str): Host URL for Ollama API. Defaults to local instance.
+            host: Host URL for Ollama API. Defaults to local instance.
         """
         self.client = Client(host=host)
+        self.model = MODEL
 
     def generate(
         self,
@@ -37,15 +43,14 @@ class OllamaAPI:
         """Generate a completion from the model.
 
         Args:
-            model (str): Name of the model to use
-            prompt (str): The prompt to generate from
-            system (str): System prompt to use. Defaults to empty string.
-            options (Union[Mapping[str, Any], Options], optional): Additional model
-                parameters
-            stream (Literal[False]): Must be False, streaming not supported
+            model: Name of the model to use.
+            prompt: The prompt to generate from.
+            system: System prompt to use. Defaults to empty string.
+            options: Additional model parameters.
+            stream: Must be False, streaming not supported.
 
         Returns:
-            GenerateResponse: Single response from the model
+            Single response from the model.
         """
         return self.client.generate(
             model=model,
@@ -55,46 +60,113 @@ class OllamaAPI:
             stream=stream,
         )
 
+    @overload
+    def chat(
+        self,
+        model: str,
+        messages: Sequence[Union[Mapping[str, Any], Message]],
+        stream: Literal[False] = False,
+        options: Optional[Union[Mapping[str, Any], Options]] = None,
+        keep_alive: Optional[str] = None,
+    ) -> ChatResponse: ...
+
+    @overload
+    def chat(
+        self,
+        model: str,
+        messages: Sequence[Union[Mapping[str, Any], Message]],
+        stream: Literal[True],
+        options: Optional[Union[Mapping[str, Any], Options]] = None,
+        keep_alive: Optional[str] = None,
+    ) -> Iterator[ChatResponse]: ...
+
     def chat(
         self,
         model: str,
         messages: Sequence[Union[Mapping[str, Any], Message]],
         stream: Literal[True, False] = False,
         options: Optional[Union[Mapping[str, Any], Options]] = None,
+        keep_alive: Optional[str] = None,
     ) -> Union[ChatResponse, Iterator[ChatResponse]]:
         """Have a chat conversation with the model.
 
         Args:
-            model (str): Name of the model to use
-            messages (Sequence[Union[Mapping[str, Any], Message]]): List of messages
-                Format: [{"role": "user", "content": "Hello"}, ...]
-            stream (Literal[True, False]): Whether to stream the response
-            options (Union[Mapping[str, Any], Options], optional): Additional model
-                parameters
+            model: Name of the model to use.
+            messages: List of messages.
+                Format: [{"role": "user", "content": "Hello"}, ...].
+            stream: Whether to stream the response.
+            options: Additional model parameters.
+            keep_alive: Duration to keep model loaded (e.g., "5m", "60m").
+                If None, uses Ollama's default (5m).
 
         Returns:
-            Union[ChatResponse, Iterator[ChatResponse]]: Single response or stream of
-                responses
+            Single response or stream of responses based on stream parameter.
         """
         return self.client.chat(
             model=model,
             messages=messages,
             stream=stream,
             options=options or {},
+            keep_alive=keep_alive,
         )
 
-    def list_models(self) -> ListResponse:
-        """List all available models.
+    def categorize(
+        self,
+        data: dict[str, str],
+        system_prompt: str,
+        valid_categories: list[str],
+        default_category: str,
+    ) -> CategorizeResult:
+        """Categorize data using the LLM.
 
-        Returns:
-            ListResponse: List of available models and their details
-        """
-        return self.client.list()
-
-    def pull_model(self, model: str) -> None:
-        """Pull a model from the Ollama library.
+        Sends a chat request with the system prompt and data, parses the JSON
+        response, and validates the returned category.
 
         Args:
-            model (str): Name of the model to pull
+            data: Dictionary of data to categorize (JSON serialized as user
+                message).
+            system_prompt: Full system prompt with category definitions.
+            valid_categories: List of valid category strings to validate
+                against.
+            default_category: Category to return on error or invalid response.
+
+        Returns:
+            CategorizeResult with category and confidence fields.
         """
-        self.client.pull(model)
+        user_content = json.dumps(data)
+
+        try:
+            response = self.chat(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content},
+                ],
+                stream=False,
+                keep_alive="60m",
+            )
+
+            if not response.message.content:
+                click.echo("Empty response from model", err=True)
+                return CategorizeResult(category=default_category, confidence=0.0)
+
+            result = response.message.content.strip()
+
+            try:
+                categorization = json.loads(result)
+                category = str(categorization["category"])
+                confidence = float(categorization["confidence"])
+
+                if category not in valid_categories:
+                    click.echo(f"Invalid category from model: {category}", err=True)
+                    return CategorizeResult(category=default_category, confidence=0.0)
+
+                return CategorizeResult(category=category, confidence=confidence)
+
+            except (json.JSONDecodeError, KeyError) as e:
+                click.echo(f"Error parsing model response: {result} ({e})", err=True)
+                return CategorizeResult(category=default_category, confidence=0.0)
+
+        except Exception as e:
+            click.echo(f"Error calling Ollama: {e}", err=True)
+            return CategorizeResult(category=default_category, confidence=0.0)
