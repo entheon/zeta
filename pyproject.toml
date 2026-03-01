@@ -1,9 +1,9 @@
 [project]
 name = "zeta"
 version = "0.1.0"
-description = "A collection of AI-powered tools and utilities"
+description = "A collection of Python utility scripts"
 requires-python = ">=3.12"
-dependencies = ["click", "ollama", "pydantic"]
+dependencies = ["click", "ollama", "Pillow", "pydantic", "pypdf"]
 authors = [{ name = "Ryan Liu", email = "ryanliu6@pm.me" }]
 license = { text = "MIT" }
 classifiers = [
@@ -13,7 +13,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
 ]
-keywords = ["ai", "ollama", "password-management"]
+keywords = ["ai", "file-utilities", "ollama", "password-management", "pdf"]
 readme = "README.md"
 
 [dependency-groups]
@@ -36,7 +36,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["llm", "modules"]
+packages = ["files", "llm", "modules", "pdf"]
 
 [tool.uv]
 constraint-dependencies = ["uv>=0.8.0"]

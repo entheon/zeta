@@ -5,7 +5,7 @@ Hierarchical email categorization with labels using LLMs.
 ## Usage
 
 ```bash
-uv run inv emails path/to/emails/ --dry-run
+uv run inv categorize.emails path/to/emails/ --dry-run
 ```
 
 ## How It Works

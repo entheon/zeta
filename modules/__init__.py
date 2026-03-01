@@ -1,1 +1,1 @@
-"""Task-specific AI-powered utility modules."""
+"""LLM-powered categorization modules (passwords, emails)."""
